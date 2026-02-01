@@ -1,0 +1,24 @@
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+// AppProps defines props for App component
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box width={40} height={5}>
+		<text>Hello from goli + gox!</text>
+	</box>
+}
+
+func main() {
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		Width:  40,
+		Height: 5,
+	})
+}

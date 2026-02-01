@@ -1,0 +1,34 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.22', '1.23']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Install gox
+        run: go install github.com/germtb/gox/cmd/gox@latest
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: gox test -v ./...
+
+      - name: Build
+        run: gox build ./...

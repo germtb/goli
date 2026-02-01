@@ -1,0 +1,119 @@
+// Select Demo showing:
+// - Multiple selects with focus navigation (Tab/Shift+Tab)
+// - Input fields
+//
+// Run with: gox run ./examples/select-demo
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+// Form selects
+var languageSelect = goli.NewSelect(goli.SelectOptions[string]{
+	InitialValue: "typescript",
+})
+
+var frameworkSelect = goli.NewSelect(goli.SelectOptions[string]{
+	InitialValue: "react",
+})
+
+var projectName = goli.NewInput(goli.InputOptions{
+	Placeholder: "my-project",
+})
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	langValue := languageSelect.Value()
+	fwValue := frameworkSelect.Value()
+	projValue := projectName.Value()
+	if projValue == "" {
+		projValue = "my-project"
+	}
+
+	langPointer := <text style={{ "color": "cyan" }}>{"❯ "}</text>
+	fwPointer := <text style={{ "color": "magenta" }}>{"→ "}</text>
+
+	return <box padding={1} gap={1} direction="column">
+		{/* Header */}
+		<text style={{ "bold": true, "color": "cyan" }}>{"Select Component Demo"}</text>
+		<text style={{ "dim": true }}>{"Tab/Shift+Tab to navigate | Up/Down or j/k to select"}</text>
+
+		{/* Form Section */}
+		<box border="rounded" padding={1} direction="column">
+			<text style={{ "bold": true }}>{"Project Setup"}</text>
+			<box height={1} />
+
+			<box direction="row" gap={2}>
+				{/* Language Select */}
+				<box direction="column">
+					<text style={{ "dim": true }}>{"Language:"}</text>
+					<select
+						select={languageSelect}
+						pointer={langPointer}
+						pointerWidth={2}
+						optionStyle={{ "color": "white" }}
+						selectedStyle={{ "bold": true, "color": "green", "background": "blue" }}
+					>
+						<option value="typescript">TypeScript</option>
+						<option value="javascript">JavaScript</option>
+						<option value="rust">Rust</option>
+						<option value="go">Go</option>
+						<option value="python">Python</option>
+					</select>
+				</box>
+
+				{/* Framework Select */}
+				<box direction="column">
+					<text style={{ "dim": true }}>{"Framework:"}</text>
+					<select
+						select={frameworkSelect}
+						pointer={fwPointer}
+						pointerWidth={2}
+						optionStyle={{ "color": "white" }}
+						selectedStyle={{ "bold": true, "color": "yellow", "background": "magenta" }}
+					>
+						<option value="react">React</option>
+						<option value="vue">Vue</option>
+						<option value="svelte">Svelte</option>
+						<option value="solid">Solid</option>
+					</select>
+				</box>
+
+				{/* Project Name Input */}
+				<box direction="column">
+					<text style={{ "dim": true }}>{"Name:"}</text>
+					<box direction="row">
+						<text>{"["}</text>
+						<input
+							input={projectName}
+							width={15}
+							style={{ "color": "white" }}
+							cursorStyle={{ "background": "cyan", "color": "black" }}
+							placeholderStyle={{ "dim": true }}
+						/>
+						<text>{"]"}</text>
+					</box>
+				</box>
+			</box>
+
+			<box height={1} />
+			<text style={{ "dim": true }}>{"Selected: " + langValue + " + " + fwValue + " → " + projValue}</text>
+		</box>
+
+		{/* Footer */}
+		<text style={{ "dim": true }}>{"Press Ctrl+C to exit"}</text>
+	</box>
+}
+
+func main() {
+	// Focus first element
+	languageSelect.Focus()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{})
+}

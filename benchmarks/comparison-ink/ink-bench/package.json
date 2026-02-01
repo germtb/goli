@@ -1,0 +1,17 @@
+{
+  "name": "ink-bench",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types index.tsx",
+    "benchmark": "node --experimental-strip-types benchmark.ts"
+  },
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0"
+  }
+}

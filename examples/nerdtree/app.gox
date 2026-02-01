@@ -1,0 +1,345 @@
+// NERDTree-style file explorer demo
+//
+// Run with: gox generate examples/nerdtree && go run ./examples/nerdtree [directory]
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/goli/signals"
+	"github.com/germtb/gox"
+)
+
+// Nerd Font icons
+const (
+	IconFolder     = "\uf07b"
+	IconFolderOpen = "\uf07c"
+	IconTS         = "\ue628"
+	IconJS         = "\ue781"
+	IconJSON       = "\ue60b"
+	IconMD         = "\ue73e"
+	IconGo         = "\ue627"
+	IconDefault    = "\uf15b"
+	ArrowRight     = "\u25b6"
+	ArrowDown      = "\u25bc"
+)
+
+var extIcons = map[string]string{
+	"ts": IconTS, "tsx": IconTS, "js": IconJS, "jsx": IconJS,
+	"json": IconJSON, "md": IconMD, "go": IconGo,
+}
+
+var extColors = map[string]string{
+	"ts": "cyan", "tsx": "cyan", "js": "yellow", "jsx": "yellow",
+	"json": "yellow", "md": "white", "go": "cyan",
+}
+
+type FileNode struct {
+	Name        string
+	Path        string
+	IsDirectory bool
+	Children    []*FileNode
+	Expanded    bool
+	Level       int
+}
+
+type AppState struct {
+	RootDir       string
+	Tree          []*FileNode
+	SelectedIndex int
+	Message       string
+}
+
+var (
+	appState, setAppState = signals.CreateSignal(AppState{})
+)
+
+func buildTree(dir string, level, maxDepth int) []*FileNode {
+	if level >= maxDepth {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var nodes []*FileNode
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || name == "node_modules" {
+			continue
+		}
+		fullPath := filepath.Join(dir, name)
+		node := &FileNode{
+			Name: name, Path: fullPath, IsDirectory: entry.IsDir(),
+			Level: level, Expanded: level == 0,
+		}
+		if node.IsDirectory {
+			node.Children = buildTree(fullPath, level+1, maxDepth)
+		}
+		nodes = append(nodes, node)
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].IsDirectory != nodes[j].IsDirectory {
+			return nodes[i].IsDirectory
+		}
+		return nodes[i].Name < nodes[j].Name
+	})
+	return nodes
+}
+
+func flattenTree(nodes []*FileNode) []*FileNode {
+	var result []*FileNode
+	for _, node := range nodes {
+		result = append(result, node)
+		if node.IsDirectory && node.Expanded && node.Children != nil {
+			result = append(result, flattenTree(node.Children)...)
+		}
+	}
+	return result
+}
+
+func getVisibleItems() []*FileNode {
+	return flattenTree(appState().Tree)
+}
+
+func toggleExpand(node *FileNode) {
+	if !node.IsDirectory {
+		signals.SetWith(setAppState, func(s AppState) AppState {
+			s.Message = "Selected: " + node.Path
+			return s
+		}, appState)
+		return
+	}
+	var updateNode func([]*FileNode) []*FileNode
+	updateNode = func(nodes []*FileNode) []*FileNode {
+		result := make([]*FileNode, len(nodes))
+		for i, n := range nodes {
+			if n.Path == node.Path {
+				newNode := *n
+				newNode.Expanded = !n.Expanded
+				result[i] = &newNode
+			} else if n.Children != nil {
+				newNode := *n
+				newNode.Children = updateNode(n.Children)
+				result[i] = &newNode
+			} else {
+				result[i] = n
+			}
+		}
+		return result
+	}
+	signals.SetWith(setAppState, func(s AppState) AppState {
+		s.Tree = updateNode(s.Tree)
+		return s
+	}, appState)
+}
+
+func getIcon(node *FileNode) string {
+	if node.IsDirectory {
+		if node.Expanded {
+			return IconFolderOpen
+		}
+		return IconFolder
+	}
+	ext := strings.TrimPrefix(filepath.Ext(node.Name), ".")
+	if icon, ok := extIcons[ext]; ok {
+		return icon
+	}
+	return IconDefault
+}
+
+func getColor(node *FileNode) string {
+	if node.IsDirectory {
+		return "blue"
+	}
+	ext := strings.TrimPrefix(filepath.Ext(node.Name), ".")
+	if color, ok := extColors[ext]; ok {
+		return color
+	}
+	return "white"
+}
+
+// renderFileEntry renders a single file entry using gox.Element
+func renderFileEntry(node *FileNode, selected bool) gox.VNode {
+	indent := strings.Repeat("  ", node.Level)
+	icon := getIcon(node)
+	nodeColor := getColor(node)
+
+	arrow := " "
+	if node.IsDirectory {
+		if node.Expanded {
+			arrow = ArrowDown
+		} else {
+			arrow = ArrowRight
+		}
+	}
+
+	textColor := nodeColor
+	bgColor := ""
+	arrowColor := "white"
+	if selected {
+		textColor = "black"
+		bgColor = "cyan"
+		arrowColor = "black"
+	}
+
+	return <box direction="row">
+		<text style={{ "color": textColor, "background": bgColor }}>{indent}</text>
+		<text style={{ "color": arrowColor, "background": bgColor }}>{arrow + " "}</text>
+		<text style={{ "color": textColor, "background": bgColor }}>{icon + " "}</text>
+		<text style={{ "color": textColor, "background": bgColor, "bold": node.IsDirectory }}>{node.Name}</text>
+	</box>
+}
+
+// AppProps defines props for App component
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	state := appState()
+	items := getVisibleItems()
+	selected := state.SelectedIndex
+
+	maxVisible := 20
+	start := 0
+	if selected > maxVisible/2 && len(items) > maxVisible {
+		start = selected - maxVisible/2
+		if start > len(items)-maxVisible {
+			start = len(items) - maxVisible
+		}
+	}
+	if start < 0 {
+		start = 0
+	}
+	end := start + maxVisible
+	if end > len(items) {
+		end = len(items)
+	}
+	visibleItems := items[start:end]
+
+	// Build nodes using gox.Element for dynamic list
+	nodes := []gox.VNode{
+		// Header
+		<box direction="row">
+			<text style={{ "color": "yellow", "bold": true }}>{IconFolder + " "}</text>
+			<text style={{ "color": "yellow", "bold": true }}>{filepath.Base(state.RootDir)}</text>
+			<text style={{ "color": "white" }}>{" (" + itoa(len(items)) + " items)"}</text>
+		</box>,
+	}
+
+	// File entries
+	for i, node := range visibleItems {
+		nodes = append(nodes, renderFileEntry(node, start+i == selected))
+	}
+
+	// Help
+	nodes = append(nodes, <text style={{ "color": "white" }}>[j/k] Navigate  [Enter/l] Expand  [h] Collapse  [q] Quit</text>)
+
+	// Message
+	if state.Message != "" {
+		nodes = append(nodes, <text style={{ "color": "green" }}>{state.Message}</text>)
+	}
+
+	return gox.Element("box", gox.Props{"direction": "column", "padding": 1}, nodes...)
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	s := ""
+	for n > 0 {
+		s = string(rune('0'+n%10)) + s
+		n /= 10
+	}
+	return s
+}
+
+func handleKey(key string, application *goli.App) bool {
+	items := getVisibleItems()
+	state := appState()
+	current := state.SelectedIndex
+
+	switch key {
+	case "j", goli.Down:
+		if current < len(items)-1 {
+			signals.SetWith(setAppState, func(s AppState) AppState {
+				s.SelectedIndex = current + 1
+				s.Message = ""
+				return s
+			}, appState)
+		}
+		return true
+	case "k", goli.Up:
+		if current > 0 {
+			signals.SetWith(setAppState, func(s AppState) AppState {
+				s.SelectedIndex = current - 1
+				s.Message = ""
+				return s
+			}, appState)
+		}
+		return true
+	case "\r", "l":
+		if current < len(items) {
+			toggleExpand(items[current])
+		}
+		return true
+	case "h":
+		if current < len(items) {
+			node := items[current]
+			if node.IsDirectory && node.Expanded {
+				toggleExpand(node)
+			}
+		}
+		return true
+	case "g":
+		signals.SetWith(setAppState, func(s AppState) AppState {
+			s.SelectedIndex = 0
+			return s
+		}, appState)
+		return true
+	case "G":
+		signals.SetWith(setAppState, func(s AppState) AppState {
+			s.SelectedIndex = len(items) - 1
+			return s
+		}, appState)
+		return true
+	case "q":
+		if application != nil {
+			application.Quit()
+		}
+		return true
+	}
+	return false
+}
+
+func main() {
+	rootDir := "."
+	if len(os.Args) > 1 {
+		rootDir = os.Args[1]
+	}
+	rootDir, _ = filepath.Abs(rootDir)
+
+	setAppState(AppState{
+		RootDir:       rootDir,
+		Tree:          buildTree(rootDir, 0, 4),
+		SelectedIndex: 0,
+	})
+
+	var application *goli.App
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		return handleKey(key, application)
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

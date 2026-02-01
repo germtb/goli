@@ -1,0 +1,39 @@
+# Generated gox files (gox uses overlay, no need to commit)
+*_gox.go
+*_gox.go.map
+
+# Binaries (examples built at root level only)
+/console
+/counter
+/demo
+/main
+/nerdtree
+/select-demo
+/simple
+/test-select
+/vim
+/perf-*
+
+# Example binaries
+examples/*/vim
+examples/*/nerdtree
+examples/*/counter
+examples/*/demo
+
+# Go build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Claude Code local settings (keep commands/)
+.claude/settings.local.json

@@ -1,0 +1,54 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+// GreetingProps defines props for Greeting component
+type GreetingProps struct {
+	Name string
+}
+
+func Greeting(props GreetingProps, children ...gox.VNode) gox.VNode {
+	name := props.Name
+	if name == "" {
+		name = "World"
+	}
+	return <box direction="column">
+		<text style={{ "color": "green", "bold": true }}>{"Hello, " + name + "!"}</text>
+		<text>Welcome to goli + gox</text>
+	</box>
+}
+
+// AppProps defines props for App component
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box width={30} height={3}>
+		<Greeting Name="World" />
+	</box>
+}
+
+func main() {
+	var output strings.Builder
+
+	application := goli.Render(func() gox.VNode {
+		return <App />
+	}, goli.Options{
+		Width:  30,
+		Height: 3,
+		Output: &output,
+	})
+
+	buf := application.Renderer().CurrentBuffer()
+	fmt.Println("Rendered output:")
+	fmt.Println(strings.Repeat("-", 32))
+	fmt.Println("|" + buf.ToDebugString() + "|")
+	fmt.Println(strings.Repeat("-", 32))
+
+	application.Dispose()
+}

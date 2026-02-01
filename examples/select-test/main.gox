@@ -1,0 +1,54 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+var mySelect = goli.NewSelect(goli.SelectOptions[string]{
+	InitialValue: "one",
+})
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	pointer := <text style={{ "color": "cyan" }}>{"❯ "}</text>
+
+	return <box direction="column">
+		<text style={{ "bold": true }}>{"Select Test"}</text>
+		<select
+			select={mySelect}
+			pointer={pointer}
+			pointerWidth={2}
+			optionStyle={{ "color": "white" }}
+			selectedStyle={{ "bold": true, "color": "green" }}
+		>
+			<option value="one">One</option>
+			<option value="two">Two</option>
+			<option value="three">Three</option>
+		</select>
+	</box>
+}
+
+func main() {
+	var output strings.Builder
+
+	application := goli.Render(func() gox.VNode {
+		return <App />
+	}, goli.Options{
+		Width:  30,
+		Height: 10,
+		Output: &output,
+	})
+
+	buf := application.Renderer().CurrentBuffer()
+	fmt.Println("Rendered output:")
+	fmt.Println(strings.Repeat("-", 32))
+	fmt.Println(buf.ToDebugString())
+	fmt.Println(strings.Repeat("-", 32))
+
+	application.Dispose()
+}

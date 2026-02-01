@@ -1,0 +1,404 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/goli/signals"
+	"github.com/germtb/gox"
+)
+
+type Mode int
+
+const (
+	NormalMode Mode = iota
+	InsertMode
+	CommandMode
+)
+
+func (m Mode) String() string {
+	switch m {
+	case NormalMode:
+		return "NORMAL"
+	case InsertMode:
+		return "INSERT"
+	case CommandMode:
+		return "COMMAND"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+type EditorState struct {
+	Lines    []string
+	CursorX  int
+	CursorY  int
+	Mode     Mode
+	Command  string
+	Message  string
+	Filename string
+}
+
+var (
+	editorState, setEditorState = signals.CreateSignal(EditorState{
+		Lines:    []string{"Welcome to goli-vim!", "", "A vim-like editor demo.", "", "Press 'i' to enter insert mode", "Press ':' to enter command mode", "Press 'q' in normal mode to quit"},
+		CursorX:  0,
+		CursorY:  0,
+		Mode:     NormalMode,
+		Filename: "[No Name]",
+	})
+)
+
+func updateState(fn func(*EditorState)) {
+	signals.SetWith(setEditorState, func(s EditorState) EditorState {
+		fn(&s)
+		return s
+	}, editorState)
+}
+
+func moveCursorUp()         { updateState(func(s *EditorState) { if s.CursorY > 0 { s.CursorY--; if s.CursorX > len(s.Lines[s.CursorY]) { s.CursorX = len(s.Lines[s.CursorY]) } } }) }
+func moveCursorDown()       { updateState(func(s *EditorState) { if s.CursorY < len(s.Lines)-1 { s.CursorY++; if s.CursorX > len(s.Lines[s.CursorY]) { s.CursorX = len(s.Lines[s.CursorY]) } } }) }
+func moveCursorLeft()       { updateState(func(s *EditorState) { if s.CursorX > 0 { s.CursorX-- } }) }
+func moveCursorRight()      { updateState(func(s *EditorState) { if s.CursorX < len(s.Lines[s.CursorY]) { s.CursorX++ } }) }
+func moveCursorToLineStart() { updateState(func(s *EditorState) { s.CursorX = 0 }) }
+func moveCursorToLineEnd()   { updateState(func(s *EditorState) { s.CursorX = len(s.Lines[s.CursorY]) }) }
+
+func insertChar(ch string) {
+	updateState(func(s *EditorState) {
+		line := s.Lines[s.CursorY]
+		s.Lines[s.CursorY] = line[:s.CursorX] + ch + line[s.CursorX:]
+		s.CursorX++
+	})
+}
+
+func deleteCharBefore() {
+	updateState(func(s *EditorState) {
+		if s.CursorX > 0 {
+			line := s.Lines[s.CursorY]
+			s.Lines[s.CursorY] = line[:s.CursorX-1] + line[s.CursorX:]
+			s.CursorX--
+		} else if s.CursorY > 0 {
+			prevLine := s.Lines[s.CursorY-1]
+			currLine := s.Lines[s.CursorY]
+			s.CursorX = len(prevLine)
+			s.Lines[s.CursorY-1] = prevLine + currLine
+			s.Lines = append(s.Lines[:s.CursorY], s.Lines[s.CursorY+1:]...)
+			s.CursorY--
+		}
+	})
+}
+
+func deleteCharAt() {
+	updateState(func(s *EditorState) {
+		line := s.Lines[s.CursorY]
+		if s.CursorX < len(line) {
+			s.Lines[s.CursorY] = line[:s.CursorX] + line[s.CursorX+1:]
+		}
+	})
+}
+
+func insertNewline() {
+	updateState(func(s *EditorState) {
+		line := s.Lines[s.CursorY]
+		before, after := line[:s.CursorX], line[s.CursorX:]
+		s.Lines[s.CursorY] = before
+		newLines := make([]string, 0, len(s.Lines)+1)
+		newLines = append(newLines, s.Lines[:s.CursorY+1]...)
+		newLines = append(newLines, after)
+		newLines = append(newLines, s.Lines[s.CursorY+1:]...)
+		s.Lines = newLines
+		s.CursorY++
+		s.CursorX = 0
+	})
+}
+
+func deleteLine() {
+	updateState(func(s *EditorState) {
+		if len(s.Lines) > 1 {
+			s.Lines = append(s.Lines[:s.CursorY], s.Lines[s.CursorY+1:]...)
+			if s.CursorY >= len(s.Lines) { s.CursorY = len(s.Lines) - 1 }
+			s.CursorX = 0
+		} else {
+			s.Lines[0] = ""
+			s.CursorX = 0
+		}
+		s.Message = "Line deleted"
+	})
+}
+
+func executeCommand(cmd string) {
+	updateState(func(s *EditorState) {
+		s.Command = ""
+		s.Mode = NormalMode
+		switch cmd {
+		case "q", "quit":
+			s.Message = "Use 'q' in normal mode to quit"
+		case "w", "write":
+			s.Message = fmt.Sprintf("Would save to %s (demo only)", s.Filename)
+		case "wq":
+			s.Message = "Would save and quit (demo only)"
+		case "help":
+			s.Message = "Commands: :q :w :wq :help"
+		default:
+			s.Message = fmt.Sprintf("Unknown command: %s", cmd)
+		}
+	})
+}
+
+// LineNumberProps for LineNumber component
+type LineNumberProps struct {
+	Num     int
+	Current bool
+}
+
+func LineNumber(props LineNumberProps, children ...gox.VNode) gox.VNode {
+	color := "gray"
+	if props.Current {
+		color = "yellow"
+	}
+	return <text style={{ "color": color }}>{fmt.Sprintf("%3d ", props.Num+1)}</text>
+}
+
+// EditorLineProps for EditorLine component
+type EditorLineProps struct {
+	Line    string
+	LineNum int
+	CursorX int
+	CursorY int
+	Mode    Mode
+	Width   int
+}
+
+func EditorLine(props EditorLineProps, children ...gox.VNode) gox.VNode {
+	line := props.Line
+	lineNum := props.LineNum
+	cursorX := props.CursorX
+	cursorY := props.CursorY
+	mode := props.Mode
+	width := props.Width
+
+	isCurrentLine := lineNum == cursorY
+	displayLine := line
+	if len(displayLine) < width-5 {
+		displayLine = displayLine + strings.Repeat(" ", width-5-len(displayLine))
+	}
+
+	lineNumNode := <LineNumber Num={lineNum} Current={isCurrentLine} />
+
+	if isCurrentLine && mode != CommandMode {
+		before := ""
+		cursor := " "
+		after := ""
+		if cursorX < len(line) {
+			before = line[:cursorX]
+			cursor = string(line[cursorX])
+			after = line[cursorX+1:]
+		} else {
+			before = line
+		}
+		remainingWidth := width - 5 - len(before) - 1 - len(after)
+		if remainingWidth > 0 {
+			after = after + strings.Repeat(" ", remainingWidth)
+		}
+		cursorBg := "white"
+		if mode == InsertMode {
+			cursorBg = "green"
+		}
+		return gox.Element("box", gox.Props{"direction": "row"},
+			lineNumNode,
+			gox.Element("text", nil, gox.Text(before)),
+			gox.Element("text", gox.Props{"style": map[string]any{"background": cursorBg, "color": "black"}}, gox.Text(cursor)),
+			gox.Element("text", nil, gox.Text(after)))
+	}
+	return gox.Element("box", gox.Props{"direction": "row"}, lineNumNode, gox.Element("text", nil, gox.Text(displayLine)))
+}
+
+// StatusBarProps for StatusBar component
+type StatusBarProps struct {
+	State EditorState
+	Width int
+}
+
+func StatusBar(props StatusBarProps, children ...gox.VNode) gox.VNode {
+	state := props.State
+	width := props.Width
+	modeColor := "blue"
+	if state.Mode == InsertMode { modeColor = "green" }
+	if state.Mode == CommandMode { modeColor = "yellow" }
+	left := fmt.Sprintf(" %s ", state.Mode.String())
+	middle := fmt.Sprintf(" %s ", state.Filename)
+	right := fmt.Sprintf(" %d:%d ", state.CursorY+1, state.CursorX+1)
+	padding := width - len(left) - len(middle) - len(right)
+	if padding < 0 { padding = 0 }
+	return <box direction="row" style={{ "background": "gray" }}>
+		<text style={{ "color": modeColor, "bold": true }}>{left}</text>
+		<text>{middle}</text>
+		<text>{strings.Repeat(" ", padding)}</text>
+		<text>{right}</text>
+	</box>
+}
+
+// CommandLineProps for CommandLine component
+type CommandLineProps struct {
+	State EditorState
+	Width int
+}
+
+func CommandLine(props CommandLineProps, children ...gox.VNode) gox.VNode {
+	state := props.State
+	width := props.Width
+	content := ""
+	color := ""
+	if state.Mode == CommandMode {
+		content = ":" + state.Command + "_"
+		color = "yellow"
+	} else if state.Message != "" {
+		content = state.Message
+		color = "cyan"
+	}
+	if len(content) < width {
+		content = content + strings.Repeat(" ", width-len(content))
+	}
+	return <text style={{ "color": color }}>{content}</text>
+}
+
+// EditorProps for Editor component
+type EditorProps struct {
+	Width  int
+	Height int
+}
+
+func Editor(props EditorProps, children ...gox.VNode) gox.VNode {
+	width := props.Width
+	height := props.Height
+	state := editorState()
+	visibleHeight := height - 2
+	editorChildren := []gox.VNode{}
+
+	for i := 0; i < visibleHeight; i++ {
+		if i < len(state.Lines) {
+			editorChildren = append(editorChildren, <EditorLine Line={state.Lines[i]} LineNum={i} CursorX={state.CursorX} CursorY={state.CursorY} Mode={state.Mode} Width={width} />)
+		} else {
+			editorChildren = append(editorChildren, <box direction="row"><text style={{ "color": "blue" }}>{"~" + strings.Repeat(" ", width-1)}</text></box>)
+		}
+	}
+	editorChildren = append(editorChildren, <StatusBar State={state} Width={width} />)
+	editorChildren = append(editorChildren, <CommandLine State={state} Width={width} />)
+
+	return gox.Element("box", gox.Props{"direction": "column", "width": width, "height": height}, editorChildren...)
+}
+
+func main() {
+	width := 60
+	height := 20
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		state := editorState()
+		switch state.Mode {
+		case NormalMode:
+			return handleNormalMode(key, application)
+		case InsertMode:
+			return handleInsertMode(key, application)
+		case CommandMode:
+			return handleCommandMode(key, application)
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <Editor Width={width} Height={height} />
+	}, goli.RunOptions{
+		Width:  width,
+		Height: height,
+		OnMount: func(a *goli.App) { application = a },
+	})
+}
+
+func handleNormalMode(key string, application *goli.App) bool {
+	switch key {
+	case "q":
+		if application != nil { application.Quit() }
+		return true
+	case "i":
+		updateState(func(s *EditorState) { s.Mode = InsertMode; s.Message = "-- INSERT --" })
+	case "a":
+		updateState(func(s *EditorState) { s.Mode = InsertMode; s.CursorX++; if s.CursorX > len(s.Lines[s.CursorY]) { s.CursorX = len(s.Lines[s.CursorY]) }; s.Message = "-- INSERT --" })
+	case "o":
+		updateState(func(s *EditorState) { newLines := make([]string, 0, len(s.Lines)+1); newLines = append(newLines, s.Lines[:s.CursorY+1]...); newLines = append(newLines, ""); newLines = append(newLines, s.Lines[s.CursorY+1:]...); s.Lines = newLines; s.CursorY++; s.CursorX = 0; s.Mode = InsertMode; s.Message = "-- INSERT --" })
+	case "O":
+		updateState(func(s *EditorState) { newLines := make([]string, 0, len(s.Lines)+1); newLines = append(newLines, s.Lines[:s.CursorY]...); newLines = append(newLines, ""); newLines = append(newLines, s.Lines[s.CursorY:]...); s.Lines = newLines; s.CursorX = 0; s.Mode = InsertMode; s.Message = "-- INSERT --" })
+	case ":":
+		updateState(func(s *EditorState) { s.Mode = CommandMode; s.Command = ""; s.Message = "" })
+	case "h", goli.Left:
+		moveCursorLeft()
+	case "j", goli.Down:
+		moveCursorDown()
+	case "k", goli.Up:
+		moveCursorUp()
+	case "l", goli.Right:
+		moveCursorRight()
+	case "0":
+		moveCursorToLineStart()
+	case "$":
+		moveCursorToLineEnd()
+	case "x":
+		deleteCharAt()
+	case "d":
+		deleteLine()
+	case "G":
+		updateState(func(s *EditorState) { s.CursorY = len(s.Lines) - 1; s.CursorX = 0 })
+	case "g":
+		updateState(func(s *EditorState) { s.CursorY = 0; s.CursorX = 0 })
+	default:
+		return false
+	}
+	return true
+}
+
+func handleInsertMode(key string, application *goli.App) bool {
+	switch key {
+	case goli.Escape:
+		updateState(func(s *EditorState) { s.Mode = NormalMode; s.Message = ""; if s.CursorX > 0 && s.CursorX >= len(s.Lines[s.CursorY]) { s.CursorX-- } })
+	case goli.Backspace:
+		deleteCharBefore()
+	case goli.Enter:
+		insertNewline()
+	case goli.Left:
+		moveCursorLeft()
+	case goli.Right:
+		moveCursorRight()
+	case goli.Up:
+		moveCursorUp()
+	case goli.Down:
+		moveCursorDown()
+	default:
+		if len(key) == 1 && key[0] >= 32 && key[0] < 127 {
+			insertChar(key)
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+func handleCommandMode(key string, application *goli.App) bool {
+	switch key {
+	case goli.Escape:
+		updateState(func(s *EditorState) { s.Mode = NormalMode; s.Command = ""; s.Message = "" })
+	case goli.Enter:
+		cmd := editorState().Command
+		executeCommand(cmd)
+	case goli.Backspace:
+		updateState(func(s *EditorState) { if len(s.Command) > 0 { s.Command = s.Command[:len(s.Command)-1] } else { s.Mode = NormalMode } })
+	default:
+		if len(key) == 1 && key[0] >= 32 && key[0] < 127 {
+			updateState(func(s *EditorState) { s.Command += key })
+		} else {
+			return false
+		}
+	}
+	return true
+}
