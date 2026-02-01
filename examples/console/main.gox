@@ -1,0 +1,77 @@
+// Console Capture Demo
+// Run with: gox run ./examples/console
+//
+// Press Ctrl+L to toggle console log viewer
+// Press Ctrl+K to clear logs (when viewer is open)
+// Press Ctrl+C to quit
+
+package main
+
+import (
+	"fmt"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/goli/signals"
+	"github.com/germtb/gox"
+)
+
+var count, setCount = signals.CreateSignal(0)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	currentCount := count()
+
+	return <box padding={2} gap={1} direction="column">
+		<text style={map[string]any{"color": "cyan", "bold": true}}>Console Capture Demo</text>
+		<text></text>
+
+		<text>Count: {fmt.Sprintf("%d", currentCount)}</text>
+		<text></text>
+
+		<text style={map[string]any{"dim": true}}>Press '+' to increment (logs to console)</text>
+		<text style={map[string]any{"dim": true}}>Press '-' to decrement (logs to console)</text>
+		<text style={map[string]any{"dim": true}}>Press 'e' to log an error</text>
+		<text style={map[string]any{"dim": true}}>Press 'w' to log a warning</text>
+		<text style={map[string]any{"dim": true}}>Press 'i' to log info</text>
+		<text></text>
+		<text style={map[string]any{"color": "yellow", "bold": true}}>Press Ctrl+L to view console logs</text>
+		<text style={map[string]any{"color": "yellow", "bold": true}}>Press Ctrl+K to clear logs (when viewer open)</text>
+		<text style={map[string]any{"dim": true}}>Press Ctrl+C to quit</text>
+	</box>
+}
+
+func main() {
+	// Create a focusable to handle app shortcuts
+	appFocusable := goli.CreateFocusable(goli.FocusableOptions{
+		OnKey: func(key string) bool {
+			switch key {
+			case "+":
+				signals.SetWith(setCount, func(c int) int { return c + 1 }, count)
+				fmt.Printf("Incremented count to %d\n", count())
+				return true
+			case "-":
+				signals.SetWith(setCount, func(c int) int { return c - 1 }, count)
+				fmt.Printf("Decremented count to %d\n", count())
+				return true
+			case "e":
+				fmt.Println("ERROR: This is an error message!")
+				return true
+			case "w":
+				fmt.Println("WARN: This is a warning message!")
+				return true
+			case "i":
+				fmt.Printf("INFO: This is an info message. Count=%d\n", count())
+				return true
+			}
+			return false
+		},
+	})
+	appFocusable.Focus()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		CaptureConsole: true,
+	})
+}

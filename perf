@@ -1,0 +1,31 @@
+#!/bin/bash
+# Run all goli performance benchmarks
+
+set -e
+
+echo "========================================"
+echo "       GOLI PERFORMANCE BENCHMARKS"
+echo "========================================"
+echo ""
+
+echo ">>> perf-pipeline (sequential vs pipelined rendering)"
+echo "----------------------------------------"
+go run ./examples/perf-pipeline/
+echo ""
+
+echo ">>> perf-scaling (scaling with terminal size)"
+echo "----------------------------------------"
+go run ./examples/perf-scaling/
+echo ""
+
+echo ">>> perf-benchmark (detailed render pipeline timing)"
+echo "----------------------------------------"
+go run ./examples/perf-benchmark/
+echo ""
+
+echo "========================================"
+echo "       ALL BENCHMARKS COMPLETE"
+echo "========================================"
+echo ""
+echo "Note: perf-stress is interactive - run separately with:"
+echo "  go run ./examples/perf-stress/"

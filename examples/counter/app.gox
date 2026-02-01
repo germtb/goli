@@ -1,0 +1,62 @@
+package main
+
+import (
+	"strconv"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/goli/signals"
+	"github.com/germtb/gox"
+)
+
+var count, setCount = signals.CreateSignal(0)
+
+// CounterProps defines props for Counter component
+type CounterProps struct{}
+
+func Counter(props CounterProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		<text style={{ "color": "cyan", "bold": true }}>{"Counter: " + strconv.Itoa(count())}</text>
+		<text style={{ "color": "gray" }}>Press j/k to change, q to quit</text>
+	</box>
+}
+
+// AppProps defines props for App component
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box width={40} height={5}>
+		<Counter />
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		switch key {
+		case "j", goli.Down:
+			signals.SetWith(setCount, func(c int) int { return c + 1 }, count)
+			return true
+		case "k", goli.Up:
+			signals.SetWith(setCount, func(c int) int { return c - 1 }, count)
+			return true
+		case "q":
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		Width:  40,
+		Height: 5,
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}
