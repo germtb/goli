@@ -3,8 +3,6 @@ package goli
 
 import (
 	"unicode"
-
-	"github.com/germtb/goli/signals"
 )
 
 // InputState represents the state of an input field.
@@ -33,12 +31,12 @@ type InputOptions struct {
 
 // Input represents a text input field.
 type Input struct {
-	value      signals.Accessor[string]
-	setValue   signals.Setter[string]
-	cursorPos  signals.Accessor[int]
-	setCursor  signals.Setter[int]
-	focused    signals.Accessor[bool]
-	setFocused signals.Setter[bool]
+	value      Accessor[string]
+	setValue   Setter[string]
+	cursorPos  Accessor[int]
+	setCursor  Setter[int]
+	focused    Accessor[bool]
+	setFocused Setter[bool]
 
 	maxLength   int
 	mask        rune
@@ -48,9 +46,9 @@ type Input struct {
 
 // NewInput creates a new input field.
 func NewInput(opts InputOptions) *Input {
-	value, setValue := signals.CreateSignal(opts.InitialValue)
-	cursorPos, setCursor := signals.CreateSignal(len(opts.InitialValue))
-	focused, setFocused := signals.CreateSignal(false)
+	value, setValue := CreateSignal(opts.InitialValue)
+	cursorPos, setCursor := CreateSignal(len(opts.InitialValue))
+	focused, setFocused := CreateSignal(false)
 
 	handler := opts.OnKeypress
 	if handler == nil {
@@ -130,7 +128,7 @@ func (i *Input) HandleKey(key string) bool {
 // SetValue updates the text value.
 func (i *Input) SetValue(value string) {
 	limited := i.applyMaxLength(value)
-	signals.BatchVoid(func() {
+	BatchVoid(func() {
 		i.setValue(limited)
 		i.setCursor(i.clampCursor(i.cursorPos(), len(limited)))
 	})
@@ -143,7 +141,7 @@ func (i *Input) SetCursorPos(pos int) {
 
 // Clear clears the input.
 func (i *Input) Clear() {
-	signals.BatchVoid(func() {
+	BatchVoid(func() {
 		i.setValue("")
 		i.setCursor(0)
 	})
@@ -181,7 +179,7 @@ func (i *Input) GetState() InputState {
 func (i *Input) setState(state InputState) {
 	limited := i.applyMaxLength(state.Value)
 	clamped := i.clampCursor(state.CursorPos, len(limited))
-	signals.BatchVoid(func() {
+	BatchVoid(func() {
 		i.setValue(limited)
 		i.setCursor(clamped)
 	})

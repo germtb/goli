@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -55,7 +54,7 @@ type AppState struct {
 }
 
 var (
-	appState, setAppState = signals.CreateSignal(AppState{})
+	appState, setAppState = goli.CreateSignal(AppState{})
 )
 
 func buildTree(dir string, level, maxDepth int) []*FileNode {
@@ -108,7 +107,7 @@ func getVisibleItems() []*FileNode {
 
 func toggleExpand(node *FileNode) {
 	if !node.IsDirectory {
-		signals.SetWith(setAppState, func(s AppState) AppState {
+		goli.SetWith(setAppState, func(s AppState) AppState {
 			s.Message = "Selected: " + node.Path
 			return s
 		}, appState)
@@ -132,7 +131,7 @@ func toggleExpand(node *FileNode) {
 		}
 		return result
 	}
-	signals.SetWith(setAppState, func(s AppState) AppState {
+	goli.SetWith(setAppState, func(s AppState) AppState {
 		s.Tree = updateNode(s.Tree)
 		return s
 	}, appState)
@@ -266,7 +265,7 @@ func handleKey(key string, application *goli.App) bool {
 	switch key {
 	case "j", goli.Down:
 		if current < len(items)-1 {
-			signals.SetWith(setAppState, func(s AppState) AppState {
+			goli.SetWith(setAppState, func(s AppState) AppState {
 				s.SelectedIndex = current + 1
 				s.Message = ""
 				return s
@@ -275,7 +274,7 @@ func handleKey(key string, application *goli.App) bool {
 		return true
 	case "k", goli.Up:
 		if current > 0 {
-			signals.SetWith(setAppState, func(s AppState) AppState {
+			goli.SetWith(setAppState, func(s AppState) AppState {
 				s.SelectedIndex = current - 1
 				s.Message = ""
 				return s
@@ -296,13 +295,13 @@ func handleKey(key string, application *goli.App) bool {
 		}
 		return true
 	case "g":
-		signals.SetWith(setAppState, func(s AppState) AppState {
+		goli.SetWith(setAppState, func(s AppState) AppState {
 			s.SelectedIndex = 0
 			return s
 		}, appState)
 		return true
 	case "G":
-		signals.SetWith(setAppState, func(s AppState) AppState {
+		goli.SetWith(setAppState, func(s AppState) AppState {
 			s.SelectedIndex = len(items) - 1
 			return s
 		}, appState)

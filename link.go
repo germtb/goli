@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -31,8 +30,8 @@ type LinkOptions struct {
 
 // Link represents a clickable hyperlink component.
 type Link struct {
-	focused    signals.Accessor[bool]
-	setFocused signals.Setter[bool]
+	focused    Accessor[bool]
+	setFocused Setter[bool]
 
 	url            string
 	onClick        func()
@@ -42,7 +41,7 @@ type Link struct {
 
 // NewLink creates a new link.
 func NewLink(opts LinkOptions) *Link {
-	focused, setFocused := signals.CreateSignal(false)
+	focused, setFocused := CreateSignal(false)
 
 	shouldRegister := true
 	if opts.DisableFocus {

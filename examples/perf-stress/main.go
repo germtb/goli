@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -32,14 +31,14 @@ var fpsPresets = []int{30, 60, 120, 240, 500, 0} // 0 = uncapped
 
 // State
 var (
-	scrollOffset, setScrollOffset = signals.CreateSignal(0)
-	data, setData                 = signals.CreateSignal(generateInitialData())
-	frameCount, setFrameCount     = signals.CreateSignal(0)
-	measuredFps, setMeasuredFps   = signals.CreateSignal(0)
-	renderTime, setRenderTime     = signals.CreateSignal(0.0)
-	paused, setPaused             = signals.CreateSignal(false)
-	targetFps, setTargetFps       = signals.CreateSignal(InitialFPS)
-	noisePercent, setNoisePercent = signals.CreateSignal(InitialNoise)
+	scrollOffset, setScrollOffset = goli.CreateSignal(0)
+	data, setData                 = goli.CreateSignal(generateInitialData())
+	frameCount, setFrameCount     = goli.CreateSignal(0)
+	measuredFps, setMeasuredFps   = goli.CreateSignal(0)
+	renderTime, setRenderTime     = goli.CreateSignal(0.0)
+	paused, setPaused             = goli.CreateSignal(false)
+	targetFps, setTargetFps       = goli.CreateSignal(InitialFPS)
+	noisePercent, setNoisePercent = goli.CreateSignal(InitialNoise)
 )
 
 // Random character
@@ -71,7 +70,7 @@ func generateInitialData() [][]rune {
 // Add noise to data (simulate rapidly changing content)
 func addNoise() {
 	noise := noisePercent()
-	signals.SetWith(setData, func(rows [][]rune) [][]rune {
+	goli.SetWith(setData, func(rows [][]rune) [][]rune {
 		// Clone rows
 		newRows := make([][]rune, len(rows))
 		for i, row := range rows {
@@ -95,7 +94,7 @@ func addNoise() {
 
 // Auto-scroll
 func autoScroll() {
-	signals.SetWith(setScrollOffset, func(offset int) int {
+	goli.SetWith(setScrollOffset, func(offset int) int {
 		newOffset := offset + 1
 		if newOffset > TotalRows-VisibleRows {
 			return 0
@@ -300,10 +299,10 @@ func main() {
 			case "q":
 				running = false
 			case "p":
-				signals.SetWith(setPaused, func(p bool) bool { return !p }, paused)
+				goli.SetWith(setPaused, func(p bool) bool { return !p }, paused)
 				application.Rerender()
 			case goli.Up:
-				signals.SetWith(setScrollOffset, func(o int) int {
+				goli.SetWith(setScrollOffset, func(o int) int {
 					if o > 0 {
 						return o - 1
 					}
@@ -311,7 +310,7 @@ func main() {
 				}, scrollOffset)
 				application.Rerender()
 			case goli.Down:
-				signals.SetWith(setScrollOffset, func(o int) int {
+				goli.SetWith(setScrollOffset, func(o int) int {
 					if o < TotalRows-VisibleRows {
 						return o + 1
 					}
@@ -319,7 +318,7 @@ func main() {
 				}, scrollOffset)
 				application.Rerender()
 			case "[":
-				signals.SetWith(setScrollOffset, func(o int) int {
+				goli.SetWith(setScrollOffset, func(o int) int {
 					newO := o - 10
 					if newO < 0 {
 						return 0
@@ -328,7 +327,7 @@ func main() {
 				}, scrollOffset)
 				application.Rerender()
 			case "]":
-				signals.SetWith(setScrollOffset, func(o int) int {
+				goli.SetWith(setScrollOffset, func(o int) int {
 					newO := o + 10
 					if newO > TotalRows-VisibleRows {
 						return TotalRows - VisibleRows
@@ -343,7 +342,7 @@ func main() {
 				cycleFps(-1)
 				application.Rerender()
 			case ">", ".":
-				signals.SetWith(setNoisePercent, func(n int) int {
+				goli.SetWith(setNoisePercent, func(n int) int {
 					if n < 100 {
 						return n + 5
 					}
@@ -351,7 +350,7 @@ func main() {
 				}, noisePercent)
 				application.Rerender()
 			case "<", ",":
-				signals.SetWith(setNoisePercent, func(n int) int {
+				goli.SetWith(setNoisePercent, func(n int) int {
 					if n > 0 {
 						return n - 5
 					}
@@ -368,7 +367,7 @@ func main() {
 				// Update state
 				addNoise()
 				autoScroll()
-				signals.SetWith(setFrameCount, func(c int) int { return c + 1 }, frameCount)
+				goli.SetWith(setFrameCount, func(c int) int { return c + 1 }, frameCount)
 
 				// Track render time
 				setRenderTime(float64(time.Since(frameStart).Nanoseconds()) / 1e6)

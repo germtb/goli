@@ -4,7 +4,6 @@ package goli
 import (
 	"strings"
 
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -76,8 +75,8 @@ type ButtonOptions struct {
 
 // Button represents a clickable button component.
 type Button struct {
-	focused    signals.Accessor[bool]
-	setFocused signals.Setter[bool]
+	focused    Accessor[bool]
+	setFocused Setter[bool]
 
 	onClick        func()
 	onKeypress     func(key string) bool
@@ -87,7 +86,7 @@ type Button struct {
 
 // NewButton creates a new button.
 func NewButton(opts ButtonOptions) *Button {
-	focused, setFocused := signals.CreateSignal(false)
+	focused, setFocused := CreateSignal(false)
 
 	shouldRegister := true
 	if opts.DisableFocus {

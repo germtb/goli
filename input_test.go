@@ -8,8 +8,8 @@ import (
 )
 
 func TestInput_HorizontalScroll(t *testing.T) {
-	// Clear focus manager state
-	Manager().Clear()
+	// Clear runtime state
+	Reset()
 
 	// Create input with fixed width=10
 	input := NewInput(InputOptions{})
@@ -100,8 +100,8 @@ func TestInput_HorizontalScroll(t *testing.T) {
 }
 
 func TestInput_VerticalScroll(t *testing.T) {
-	// Clear focus manager state
-	Manager().Clear()
+	// Clear runtime state
+	Reset()
 
 	// Create input with fixed height=3
 	input := NewInput(InputOptions{})
@@ -151,8 +151,8 @@ func TestInput_VerticalScroll(t *testing.T) {
 }
 
 func TestInput_CursorVisible_AfterTyping(t *testing.T) {
-	// Clear focus manager state
-	Manager().Clear()
+	// Clear runtime state
+	Reset()
 
 	// Create input with fixed width=5
 	input := NewInput(InputOptions{})

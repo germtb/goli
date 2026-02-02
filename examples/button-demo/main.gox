@@ -12,25 +12,24 @@ import (
 	"fmt"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
 // State for tracking clicks
-var clickCount, setClickCount = signals.CreateSignal(0)
-var lastClicked, setLastClicked = signals.CreateSignal("")
+var clickCount, setClickCount = goli.CreateSignal(0)
+var lastClicked, setLastClicked = goli.CreateSignal("")
 
 // Buttons
 var submitBtn = goli.NewButton(goli.ButtonOptions{
 	OnClick: func() {
-		signals.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
+		goli.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
 		setLastClicked("Submit")
 	},
 })
 
 var cancelBtn = goli.NewButton(goli.ButtonOptions{
 	OnClick: func() {
-		signals.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
+		goli.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
 		setLastClicked("Cancel")
 	},
 })
@@ -44,7 +43,7 @@ var resetBtn = goli.NewButton(goli.ButtonOptions{
 
 var infoBtn = goli.NewButton(goli.ButtonOptions{
 	OnClick: func() {
-		signals.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
+		goli.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
 		setLastClicked("Info")
 	},
 })

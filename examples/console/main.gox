@@ -11,11 +11,10 @@ import (
 	"fmt"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
-var count, setCount = signals.CreateSignal(0)
+var count, setCount = goli.CreateSignal(0)
 
 type AppProps struct{}
 
@@ -47,11 +46,11 @@ func main() {
 		OnKey: func(key string) bool {
 			switch key {
 			case "+":
-				signals.SetWith(setCount, func(c int) int { return c + 1 }, count)
+				goli.SetWith(setCount, func(c int) int { return c + 1 }, count)
 				fmt.Printf("Incremented count to %d\n", count())
 				return true
 			case "-":
-				signals.SetWith(setCount, func(c int) int { return c - 1 }, count)
+				goli.SetWith(setCount, func(c int) int { return c - 1 }, count)
 				fmt.Printf("Decremented count to %d\n", count())
 				return true
 			case "e":

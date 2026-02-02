@@ -1,11 +1,11 @@
-// Package signals provides fine-grained reactive primitives.
+// Package goli provides fine-grained reactive primitives.
 //
 // Key principles:
 // - Components run ONCE (setup phase)
 // - Signals created inside components are local to that instance
 // - Fine-grained reactivity: only re-run what depends on changed signals
 // - No rules of hooks - signals are just values
-package signals
+package goli
 
 import "sync"
 
@@ -18,29 +18,20 @@ type Setter[T any] func(T)
 // SetterFunc updates based on previous value.
 type SetterFunc[T any] func(prev T) T
 
-// computation tracks a reactive computation (effect or memo).
-type computation struct {
-	execute      func()
-	dependencies map[*signal[any]]struct{}
-	mu           sync.Mutex
-}
-
-// signal is the internal signal implementation.
-type signal[T any] struct {
+// signalValue is the internal signal implementation.
+type signalValue[T any] struct {
 	value       T
 	subscribers map[*computation]struct{}
 	mu          sync.RWMutex
 }
 
-// Global reactive context
-var (
-	currentComputation   *computation
-	currentComputationMu sync.Mutex
-
-	batchDepth          int
-	batchMu             sync.Mutex
-	pendingComputations = make(map[*computation]struct{})
-)
+// unsubscribe removes a computation from this signal's subscribers.
+// Implements the subscriber interface.
+func (s *signalValue[T]) unsubscribe(comp *computation) {
+	s.mu.Lock()
+	delete(s.subscribers, comp)
+	s.mu.Unlock()
+}
 
 // CreateSignal creates a reactive signal.
 //
@@ -51,7 +42,13 @@ var (
 //	setCount(1)
 //	fmt.Println(count()) // 1
 func CreateSignal[T any](initialValue T) (Accessor[T], Setter[T]) {
-	s := &signal[T]{
+	return createSignalInternal(Global, initialValue)
+}
+
+// createSignalInternal creates a signal using the given runtime.
+// This is used internally to avoid circular initialization.
+func createSignalInternal[T any](rt *Runtime, initialValue T) (Accessor[T], Setter[T]) {
+	s := &signalValue[T]{
 		value:       initialValue,
 		subscribers: make(map[*computation]struct{}),
 	}
@@ -62,18 +59,15 @@ func CreateSignal[T any](initialValue T) (Accessor[T], Setter[T]) {
 		s.mu.RUnlock()
 
 		// Track this signal as a dependency of current computation
-		currentComputationMu.Lock()
-		comp := currentComputation
-		currentComputationMu.Unlock()
-
+		comp := rt.getCurrentComputation()
 		if comp != nil {
 			s.mu.Lock()
 			s.subscribers[comp] = struct{}{}
 			s.mu.Unlock()
 
+			// Store subscription for cleanup (fixes memory leak)
 			comp.mu.Lock()
-			// Store as any to work with typed signals
-			comp.dependencies[(*signal[any])(nil)] = struct{}{}
+			comp.subscriptions = append(comp.subscriptions, s)
 			comp.mu.Unlock()
 		}
 
@@ -82,7 +76,6 @@ func CreateSignal[T any](initialValue T) (Accessor[T], Setter[T]) {
 
 	write := func(newValue T) {
 		s.mu.Lock()
-		// Simple equality check for comparable types
 		s.value = newValue
 
 		// Get subscribers to notify
@@ -93,16 +86,12 @@ func CreateSignal[T any](initialValue T) (Accessor[T], Setter[T]) {
 		s.mu.Unlock()
 
 		// Notify subscribers
-		batchMu.Lock()
-		inBatch := batchDepth > 0
-		batchMu.Unlock()
+		inBatch := rt.getBatchDepth() > 0
 
 		if inBatch {
-			batchMu.Lock()
 			for _, comp := range subs {
-				pendingComputations[comp] = struct{}{}
+				rt.addPendingComputation(comp)
 			}
-			batchMu.Unlock()
 		} else {
 			for _, comp := range subs {
 				comp.execute()
@@ -114,8 +103,10 @@ func CreateSignal[T any](initialValue T) (Accessor[T], Setter[T]) {
 }
 
 // CreateSignalWithEquals creates a signal with a custom equality function.
+// If the new value equals the old value according to the equality function,
+// subscribers are not notified.
 func CreateSignalWithEquals[T any](initialValue T, equals func(a, b T) bool) (Accessor[T], Setter[T]) {
-	s := &signal[T]{
+	s := &signalValue[T]{
 		value:       initialValue,
 		subscribers: make(map[*computation]struct{}),
 	}
@@ -125,14 +116,16 @@ func CreateSignalWithEquals[T any](initialValue T, equals func(a, b T) bool) (Ac
 		val := s.value
 		s.mu.RUnlock()
 
-		currentComputationMu.Lock()
-		comp := currentComputation
-		currentComputationMu.Unlock()
-
+		comp := Global.getCurrentComputation()
 		if comp != nil {
 			s.mu.Lock()
 			s.subscribers[comp] = struct{}{}
 			s.mu.Unlock()
+
+			// Store subscription for cleanup (fixes memory leak)
+			comp.mu.Lock()
+			comp.subscriptions = append(comp.subscriptions, s)
+			comp.mu.Unlock()
 		}
 
 		return val
@@ -152,16 +145,12 @@ func CreateSignalWithEquals[T any](initialValue T, equals func(a, b T) bool) (Ac
 		}
 		s.mu.Unlock()
 
-		batchMu.Lock()
-		inBatch := batchDepth > 0
-		batchMu.Unlock()
+		inBatch := Global.getBatchDepth() > 0
 
 		if inBatch {
-			batchMu.Lock()
 			for _, comp := range subs {
-				pendingComputations[comp] = struct{}{}
+				Global.addPendingComputation(comp)
 			}
-			batchMu.Unlock()
 		} else {
 			for _, comp := range subs {
 				comp.execute()

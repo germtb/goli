@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -65,8 +64,8 @@ func Render(appFn func() gox.VNode, opts Options) *App {
 		r.Render(currentVNode)
 	}
 
-	disposeRoot = signals.CreateRoot(func(dispose signals.DisposeFunc) func() {
-		signals.CreateEffect(func() signals.CleanupFunc {
+	disposeRoot = CreateRoot(func(dispose DisposeFunc) func() {
+		CreateEffect(func() CleanupFunc {
 			defer func() {
 				if r := recover(); r != nil {
 					if opts.OnError != nil {
@@ -169,7 +168,7 @@ func Run(appFn func() gox.VNode, opts RunOptions) {
 	}
 
 	var logCapture *LogCapture
-	showLogs, setShowLogs := signals.CreateSignal(false)
+	showLogs, setShowLogs := CreateSignal(false)
 
 	if captureConsole {
 		logCapture = NewLogCapture(maxMessages)

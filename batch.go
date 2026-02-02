@@ -1,4 +1,4 @@
-package signals
+package goli
 
 // Batch batches multiple signal updates into a single update cycle.
 // All effects are deferred until the batch completes.
@@ -14,18 +14,11 @@ package signals
 //	    // Effects run only once after both updates
 //	})
 func Batch[T any](fn func() T) T {
-	batchMu.Lock()
-	batchDepth++
-	batchMu.Unlock()
+	Global.incrementBatchDepth()
 
 	defer func() {
-		batchMu.Lock()
-		batchDepth--
-		shouldFlush := batchDepth == 0
-		batchMu.Unlock()
-
-		if shouldFlush {
-			flushPending()
+		if Global.decrementBatchDepth() {
+			Global.flushPending()
 		}
 	}()
 
@@ -38,20 +31,6 @@ func BatchVoid(fn func()) {
 		fn()
 		return struct{}{}
 	})
-}
-
-func flushPending() {
-	batchMu.Lock()
-	toRun := make([]*computation, 0, len(pendingComputations))
-	for comp := range pendingComputations {
-		toRun = append(toRun, comp)
-	}
-	pendingComputations = make(map[*computation]struct{})
-	batchMu.Unlock()
-
-	for _, comp := range toRun {
-		comp.execute()
-	}
 }
 
 // Untrack reads signals without tracking them as dependencies.
@@ -67,15 +46,11 @@ func flushPending() {
 //	    return nil
 //	})
 func Untrack[T any](fn func() T) T {
-	currentComputationMu.Lock()
-	prevComputation := currentComputation
-	currentComputation = nil
-	currentComputationMu.Unlock()
+	prevComputation := Global.getCurrentComputation()
+	Global.setCurrentComputation(nil)
 
 	defer func() {
-		currentComputationMu.Lock()
-		currentComputation = prevComputation
-		currentComputationMu.Unlock()
+		Global.setCurrentComputation(prevComputation)
 	}()
 
 	return fn()
@@ -83,7 +58,5 @@ func Untrack[T any](fn func() T) T {
 
 // IsTracking returns true if we're currently inside a reactive tracking context.
 func IsTracking() bool {
-	currentComputationMu.Lock()
-	defer currentComputationMu.Unlock()
-	return currentComputation != nil
+	return Global.getCurrentComputation() != nil
 }

@@ -74,18 +74,17 @@ JSX (.gox) → gox preprocess → Go code → VNode tree → Layout → Buffer �
 
 | Package | Description |
 |---------|-------------|
-| `goli` | Core rendering, layout, app lifecycle, focus, input components |
-| `goli/signals` | Reactive primitives: signals, effects, memos, batching |
+| `goli` | Core rendering, layout, app lifecycle, focus, input components, reactive primitives |
 
 ## Reactive Primitives
 
 goli uses fine-grained reactive primitives:
 
 ```go
-import "github.com/germtb/goli/signals"
+import "github.com/germtb/goli"
 
 // Create a signal
-count, setCount := signals.CreateSignal(0)
+count, setCount := goli.CreateSignal(0)
 
 // Read value
 fmt.Println(count()) // 0
@@ -94,21 +93,21 @@ fmt.Println(count()) // 0
 setCount(1)
 
 // Update based on previous value
-signals.SetWith(setCount, func(prev int) int { return prev + 1 }, count)
+goli.SetWith(setCount, func(prev int) int { return prev + 1 }, count)
 
 // Create derived state
-doubled := signals.CreateMemo(func() int {
+doubled := goli.CreateMemo(func() int {
     return count() * 2
 })
 
 // Create side effects
-signals.CreateEffect(func() signals.CleanupFunc {
+goli.CreateEffect(func() goli.CleanupFunc {
     fmt.Println("Count changed to:", count())
     return nil // cleanup function
 })
 
 // Batch updates
-signals.Batch(func() {
+goli.Batch(func() {
     setCount(1)
     setCount(2)
 }) // Only triggers effects once
@@ -258,13 +257,20 @@ Comparison against [Ink](https://github.com/vadimdemedes/ink) (React for CLIs) r
 
 | Metric | goli (Go) | Ink (React/Bun) | Difference |
 |--------|-----------|-----------------|------------|
-| **Binary size** | 2.6 MB | 40 MB | ~15x smaller |
-| **Startup time** | 0.17 ms | 17 ms | ~100x faster |
-| **Memory usage** | 0.28 MB | 37 MB | ~130x less |
+| **Binary size** | 2.8 MB | 40 MB | ~14x smaller |
+| **Startup time** | 0.08 ms | 17 ms | ~210x faster |
+| **Memory usage** | 0.36 MB | 37 MB | ~100x less |
 | **Idle CPU** | 0.00% | 1.0% | No overhead |
-| **Update throughput** | 25,000/sec | 2,800/sec | ~9x faster |
+| **Max FPS** | 28,000 | 2,800 | ~10x faster |
 
 *Tested on Apple M3 Max, Go 1.25, Bun 1.3. See `benchmarks/` for reproduction.*
+
+### Large Screen Performance
+
+| Screen Size | Cells | Components | FPS |
+|-------------|-------|------------|-----|
+| 60×40 | 2,400 | 100 | 28,000 |
+| 200×50 | 10,000 | 10,000 | 280 |
 
 ### Why the difference?
 

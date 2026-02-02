@@ -12,12 +12,11 @@ import (
 	"fmt"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
 // State for active tab
-var activeTab, setActiveTab = signals.CreateSignal(0)
+var activeTab, setActiveTab = goli.CreateSignal(0)
 
 var tabs = []string{"Overview", "Analytics", "Settings"}
 
@@ -128,12 +127,12 @@ func main() {
 			}
 			return true
 		case goli.Tab:
-			signals.SetWith(setActiveTab, func(t int) int {
+			goli.SetWith(setActiveTab, func(t int) int {
 				return (t + 1) % len(tabs)
 			}, activeTab)
 			return true
 		case goli.ShiftTab:
-			signals.SetWith(setActiveTab, func(t int) int {
+			goli.SetWith(setActiveTab, func(t int) int {
 				return (t - 1 + len(tabs)) % len(tabs)
 			}, activeTab)
 			return true

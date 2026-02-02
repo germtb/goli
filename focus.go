@@ -2,8 +2,6 @@ package goli
 
 import (
 	"sync"
-
-	"github.com/germtb/goli/signals"
 )
 
 // Focusable is the interface for any focusable element (input, button, etc).
@@ -19,27 +17,16 @@ type Focusable interface {
 // FocusManager manages focus state for terminal UI components.
 type FocusManager struct {
 	mu                  sync.RWMutex
-	currentFocused      signals.Accessor[Focusable]
-	setCurrentFocused   signals.Setter[Focusable]
+	currentFocused      Accessor[Focusable]
+	setCurrentFocused   Setter[Focusable]
 	registered          []Focusable
 	globalKeyHandler func(key string) bool
 }
 
-// Global focus manager instance
-var manager *FocusManager
-var managerOnce sync.Once
-
 // Manager returns the global focus manager.
+// This is a convenience function that accesses Global.FocusManager().
 func Manager() *FocusManager {
-	managerOnce.Do(func() {
-		current, setCurrent := signals.CreateSignal[Focusable](nil)
-		manager = &FocusManager{
-			currentFocused:    current,
-			setCurrentFocused: setCurrent,
-			registered:        make([]Focusable, 0),
-		}
-	})
-	return manager
+	return Global.FocusManager()
 }
 
 // Register adds a focusable to the manager.
@@ -74,7 +61,7 @@ func (m *FocusManager) RequestFocus(f Focusable) {
 		return
 	}
 
-	signals.BatchVoid(func() {
+	BatchVoid(func() {
 		if current != nil {
 			current.SetFocused(false)
 		}
@@ -86,7 +73,7 @@ func (m *FocusManager) RequestFocus(f Focusable) {
 // RequestBlur blurs a specific focusable.
 func (m *FocusManager) RequestBlur(f Focusable) {
 	if m.currentFocused() == f {
-		signals.BatchVoid(func() {
+		BatchVoid(func() {
 			f.SetFocused(false)
 			m.setCurrentFocused(nil)
 		})

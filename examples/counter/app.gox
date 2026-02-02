@@ -4,11 +4,10 @@ import (
 	"strconv"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
-var count, setCount = signals.CreateSignal(0)
+var count, setCount = goli.CreateSignal(0)
 
 // CounterProps defines props for Counter component
 type CounterProps struct{}
@@ -35,10 +34,10 @@ func main() {
 	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
 		switch key {
 		case "j", goli.Down:
-			signals.SetWith(setCount, func(c int) int { return c + 1 }, count)
+			goli.SetWith(setCount, func(c int) int { return c + 1 }, count)
 			return true
 		case "k", goli.Up:
-			signals.SetWith(setCount, func(c int) int { return c - 1 }, count)
+			goli.SetWith(setCount, func(c int) int { return c - 1 }, count)
 			return true
 		case "q":
 			if application != nil {

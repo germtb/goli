@@ -3,8 +3,6 @@ package goli
 
 import (
 	"sync"
-
-	"github.com/germtb/goli/signals"
 )
 
 // SelectOptions configures select creation.
@@ -24,10 +22,10 @@ type SelectOptions[T comparable] struct {
 type Select[T comparable] struct {
 	mu sync.RWMutex
 
-	selectedIndex signals.Accessor[int]
-	setIndex      signals.Setter[int]
-	focused       signals.Accessor[bool]
-	setFocused    signals.Setter[bool]
+	selectedIndex Accessor[int]
+	setIndex      Setter[int]
+	focused       Accessor[bool]
+	setFocused    Setter[bool]
 
 	// optionValues is populated during layout from <option> children - not a signal
 	optionValues    map[int]T
@@ -45,8 +43,8 @@ type Select[T comparable] struct {
 
 // NewSelect creates a new select primitive.
 func NewSelect[T comparable](opts SelectOptions[T]) *Select[T] {
-	selectedIndex, setIndex := signals.CreateSignal(0)
-	focused, setFocused := signals.CreateSignal(false)
+	selectedIndex, setIndex := CreateSignal(0)
+	focused, setFocused := CreateSignal(false)
 
 	shouldRegister := true
 	if opts.DisableFocus {

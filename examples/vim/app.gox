@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -41,7 +40,7 @@ type EditorState struct {
 }
 
 var (
-	editorState, setEditorState = signals.CreateSignal(EditorState{
+	editorState, setEditorState = goli.CreateSignal(EditorState{
 		Lines:    []string{"Welcome to goli-vim!", "", "A vim-like editor demo.", "", "Press 'i' to enter insert mode", "Press ':' to enter command mode", "Press 'q' in normal mode to quit"},
 		CursorX:  0,
 		CursorY:  0,
@@ -51,7 +50,7 @@ var (
 )
 
 func updateState(fn func(*EditorState)) {
-	signals.SetWith(setEditorState, func(s EditorState) EditorState {
+	goli.SetWith(setEditorState, func(s EditorState) EditorState {
 		fn(&s)
 		return s
 	}, editorState)

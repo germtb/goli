@@ -28,7 +28,7 @@ func (m *mockFocusable) HandleKey(key string) bool {
 
 func setupTest(t *testing.T) {
 	t.Helper()
-	Manager().Clear()
+	Reset()
 }
 
 func TestFocusManager_RegistersAutomatically(t *testing.T) {

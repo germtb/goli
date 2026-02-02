@@ -33,7 +33,7 @@ echo
 
 # Build goli benchmark
 cd goli-bench
-go build -o ../goli-bench-bin . 2>/dev/null
+gox build -o ../goli-bench-bin . 2>/dev/null
 cd ..
 
 # Get binary size

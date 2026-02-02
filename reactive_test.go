@@ -1,10 +1,11 @@
-package signals
+package goli
 
 import (
 	"testing"
 )
 
 func TestCreateSignal_ReturnsAccessorAndSetter(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 
 	if count == nil {
@@ -16,6 +17,7 @@ func TestCreateSignal_ReturnsAccessorAndSetter(t *testing.T) {
 }
 
 func TestCreateSignal_AccessorReturnsCurrentValue(t *testing.T) {
+	Reset()
 	count, _ := CreateSignal(42)
 	if count() != 42 {
 		t.Errorf("expected 42, got %d", count())
@@ -23,6 +25,7 @@ func TestCreateSignal_AccessorReturnsCurrentValue(t *testing.T) {
 }
 
 func TestCreateSignal_SetterUpdatesValue(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 	setCount(5)
 	if count() != 5 {
@@ -31,6 +34,7 @@ func TestCreateSignal_SetterUpdatesValue(t *testing.T) {
 }
 
 func TestCreateSignal_SetterAcceptsUpdateFunction(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(10)
 	// Use SetWith to update based on previous value
 	SetWith(setCount, func(prev int) int { return prev + 5 }, count)
@@ -40,6 +44,7 @@ func TestCreateSignal_SetterAcceptsUpdateFunction(t *testing.T) {
 }
 
 func TestCreateSignal_DoesNotTriggerForSameValue(t *testing.T) {
+	Reset()
 	// Use CreateSignalWithEquals for equality-based deduplication
 	count, setCount := CreateSignalWithEquals(5, func(a, b int) bool { return a == b })
 	effectRuns := 0
@@ -64,6 +69,7 @@ func TestCreateSignal_DoesNotTriggerForSameValue(t *testing.T) {
 }
 
 func TestCreateSignal_WorksWithObjects(t *testing.T) {
+	Reset()
 	type Person struct {
 		Name string
 		Age  int
@@ -81,6 +87,7 @@ func TestCreateSignal_WorksWithObjects(t *testing.T) {
 }
 
 func TestCreateSignal_WorksWithSlices(t *testing.T) {
+	Reset()
 	items, setItems := CreateSignal([]int{1, 2, 3})
 
 	got := items()
@@ -99,6 +106,7 @@ func TestCreateSignal_WorksWithSlices(t *testing.T) {
 }
 
 func TestCreateEffect_RunsImmediately(t *testing.T) {
+	Reset()
 	ran := false
 	CreateRoot(func(dispose DisposeFunc) func() {
 		CreateEffect(func() CleanupFunc {
@@ -113,6 +121,7 @@ func TestCreateEffect_RunsImmediately(t *testing.T) {
 }
 
 func TestCreateEffect_RerunsOnDependencyChange(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 	var values []int
 
@@ -139,6 +148,7 @@ func TestCreateEffect_RerunsOnDependencyChange(t *testing.T) {
 }
 
 func TestCreateEffect_TracksMultipleSignals(t *testing.T) {
+	Reset()
 	a, setA := CreateSignal(1)
 	b, setB := CreateSignal(2)
 	var sums []int
@@ -167,6 +177,7 @@ func TestCreateEffect_TracksMultipleSignals(t *testing.T) {
 }
 
 func TestCreateEffect_RunsCleanupBeforeRerun(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 	cleanups := 0
 
@@ -194,6 +205,7 @@ func TestCreateEffect_RunsCleanupBeforeRerun(t *testing.T) {
 }
 
 func TestCreateEffect_CleanupRunsOnDispose(t *testing.T) {
+	Reset()
 	count, _ := CreateSignal(0)
 	cleanups := 0
 
@@ -217,6 +229,7 @@ func TestCreateEffect_CleanupRunsOnDispose(t *testing.T) {
 }
 
 func TestCreateMemo_ComputesDerivedValue(t *testing.T) {
+	Reset()
 	count, _ := CreateSignal(5)
 	computeCount := 0
 
@@ -234,6 +247,7 @@ func TestCreateMemo_ComputesDerivedValue(t *testing.T) {
 }
 
 func TestCreateMemo_UpdatesOnDependencyChange(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(5)
 	doubled := CreateMemo(func() int {
 		return count() * 2
@@ -249,6 +263,7 @@ func TestCreateMemo_UpdatesOnDependencyChange(t *testing.T) {
 }
 
 func TestCreateMemo_ChainsMemos(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(2)
 	doubled := CreateMemo(func() int {
 		return count() * 2
@@ -267,6 +282,7 @@ func TestCreateMemo_ChainsMemos(t *testing.T) {
 }
 
 func TestCreateRoot_ReturnsResult(t *testing.T) {
+	Reset()
 	result := CreateRoot(func(dispose DisposeFunc) int {
 		return 42
 	})
@@ -276,6 +292,7 @@ func TestCreateRoot_ReturnsResult(t *testing.T) {
 }
 
 func TestCreateRoot_DisposeCleansUpEffects(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 	var values []int
 
@@ -301,6 +318,7 @@ func TestCreateRoot_DisposeCleansUpEffects(t *testing.T) {
 }
 
 func TestOnCleanup_RunsOnDispose(t *testing.T) {
+	Reset()
 	cleaned := false
 
 	CreateRoot(func(dispose DisposeFunc) func() {
@@ -320,6 +338,7 @@ func TestOnCleanup_RunsOnDispose(t *testing.T) {
 }
 
 func TestBatch_BatchesMultipleUpdates(t *testing.T) {
+	Reset()
 	a, setA := CreateSignal(0)
 	b, setB := CreateSignal(0)
 	effectRuns := 0
@@ -349,6 +368,7 @@ func TestBatch_BatchesMultipleUpdates(t *testing.T) {
 }
 
 func TestBatch_HandlesNestedBatches(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 	effectRuns := 0
 
@@ -378,6 +398,7 @@ func TestBatch_HandlesNestedBatches(t *testing.T) {
 }
 
 func TestBatch_ReturnsResult(t *testing.T) {
+	Reset()
 	result := Batch(func() int {
 		return 42
 	})
@@ -387,6 +408,7 @@ func TestBatch_ReturnsResult(t *testing.T) {
 }
 
 func TestUntrack_PreventsTracking(t *testing.T) {
+	Reset()
 	count, setCount := CreateSignal(0)
 	effectRuns := 0
 
@@ -409,6 +431,7 @@ func TestUntrack_PreventsTracking(t *testing.T) {
 }
 
 func TestUntrack_ReturnsValue(t *testing.T) {
+	Reset()
 	count, _ := CreateSignal(42)
 	value := Untrack(func() int { return count() })
 	if value != 42 {
@@ -417,6 +440,7 @@ func TestUntrack_ReturnsValue(t *testing.T) {
 }
 
 func TestSolidPatterns_ComponentLocalState(t *testing.T) {
+	Reset()
 	type Counter struct {
 		Count     Accessor[int]
 		Increment func()
@@ -448,6 +472,7 @@ func TestSolidPatterns_ComponentLocalState(t *testing.T) {
 }
 
 func TestSolidPatterns_DerivedStateWithMemo(t *testing.T) {
+	Reset()
 	firstName, setFirstName := CreateSignal("John")
 	lastName, setLastName := CreateSignal("Doe")
 
@@ -471,6 +496,7 @@ func TestSolidPatterns_DerivedStateWithMemo(t *testing.T) {
 }
 
 func TestSolidPatterns_ConditionalEffects(t *testing.T) {
+	Reset()
 	show, setShow := CreateSignal(true)
 	count, setCount := CreateSignal(0)
 	var values []int

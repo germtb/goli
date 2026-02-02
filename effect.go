@@ -1,4 +1,4 @@
-package signals
+package goli
 
 import "sync"
 
@@ -28,7 +28,7 @@ func CreateEffect(fn func() CleanupFunc) DisposeFunc {
 	var mu sync.Mutex
 
 	comp := &computation{
-		dependencies: make(map[*signal[any]]struct{}),
+		subscriptions: make([]subscriber, 0),
 	}
 
 	comp.execute = func() {
@@ -47,21 +47,23 @@ func CreateEffect(fn func() CleanupFunc) DisposeFunc {
 			mu.Lock()
 		}
 
-		// Clear old dependencies (simplified - full impl would unsubscribe)
-		comp.dependencies = make(map[*signal[any]]struct{})
+		// Unsubscribe from old signals before re-tracking (fixes memory leak)
+		comp.mu.Lock()
+		for _, sub := range comp.subscriptions {
+			sub.unsubscribe(comp)
+		}
+		comp.subscriptions = comp.subscriptions[:0]
+		comp.mu.Unlock()
+
 		mu.Unlock()
 
 		// Run with tracking
-		currentComputationMu.Lock()
-		prevComputation := currentComputation
-		currentComputation = comp
-		currentComputationMu.Unlock()
+		prevComputation := Global.getCurrentComputation()
+		Global.setCurrentComputation(comp)
 
 		newCleanup := fn()
 
-		currentComputationMu.Lock()
-		currentComputation = prevComputation
-		currentComputationMu.Unlock()
+		Global.setCurrentComputation(prevComputation)
 
 		mu.Lock()
 		cleanup = newCleanup
@@ -81,6 +83,15 @@ func CreateEffect(fn func() CleanupFunc) DisposeFunc {
 		disposed = true
 		cleanupFn := cleanup
 		cleanup = nil
+
+		// Unsubscribe from all signals
+		comp.mu.Lock()
+		for _, sub := range comp.subscriptions {
+			sub.unsubscribe(comp)
+		}
+		comp.subscriptions = nil
+		comp.mu.Unlock()
+
 		mu.Unlock()
 
 		if cleanupFn != nil {
@@ -89,11 +100,12 @@ func CreateEffect(fn func() CleanupFunc) DisposeFunc {
 	}
 
 	// Register with current owner for automatic cleanup
-	ownerMu.Lock()
-	if currentOwner != nil {
-		currentOwner.disposables = append(currentOwner.disposables, dispose)
+	owner := Global.getCurrentOwner()
+	if owner != nil {
+		Global.mu.Lock()
+		owner.disposables = append(owner.disposables, dispose)
+		Global.mu.Unlock()
 	}
-	ownerMu.Unlock()
 
 	return dispose
 }

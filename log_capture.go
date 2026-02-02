@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/germtb/goli/signals"
 )
 
 // LogLevel represents the severity of a log message
@@ -29,8 +27,8 @@ type LogMessage struct {
 
 // LogCapture captures log output for display in the TUI
 type LogCapture struct {
-	messages    signals.Accessor[[]LogMessage]
-	setMessages signals.Setter[[]LogMessage]
+	messages    Accessor[[]LogMessage]
+	setMessages Setter[[]LogMessage]
 	maxMessages int
 	mu          sync.Mutex
 
@@ -54,7 +52,7 @@ func NewLogCapture(maxMessages int) *LogCapture {
 		maxMessages = 1000
 	}
 
-	messages, setMessages := signals.CreateSignal([]LogMessage{})
+	messages, setMessages := CreateSignal([]LogMessage{})
 
 	return &LogCapture{
 		messages:    messages,
@@ -171,7 +169,7 @@ func (lc *LogCapture) addMessage(level LogLevel, message string) {
 		Message:   message,
 	}
 
-	signals.SetWith(lc.setMessages, func(prev []LogMessage) []LogMessage {
+	SetWith(lc.setMessages, func(prev []LogMessage) []LogMessage {
 		next := append(prev, msg)
 		if len(next) > lc.maxMessages {
 			// Trim to max

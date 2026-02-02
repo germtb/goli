@@ -1,16 +1,4 @@
-package signals
-
-import "sync"
-
-// Owner tracks disposables for cleanup.
-type Owner struct {
-	disposables []func()
-}
-
-var (
-	currentOwner *Owner
-	ownerMu      sync.Mutex
-)
+package goli
 
 // CreateRoot creates a reactive root. All reactive primitives created inside
 // will be cleaned up when the root is disposed.
@@ -29,22 +17,18 @@ var (
 func CreateRoot[T any](fn func(dispose DisposeFunc) T) T {
 	owner := &Owner{disposables: make([]func(), 0)}
 
-	ownerMu.Lock()
-	prevOwner := currentOwner
-	currentOwner = owner
-	ownerMu.Unlock()
+	prevOwner := Global.getCurrentOwner()
+	Global.setCurrentOwner(owner)
 
 	defer func() {
-		ownerMu.Lock()
-		currentOwner = prevOwner
-		ownerMu.Unlock()
+		Global.setCurrentOwner(prevOwner)
 	}()
 
 	dispose := func() {
-		ownerMu.Lock()
+		Global.mu.Lock()
 		disposables := owner.disposables
 		owner.disposables = nil
-		ownerMu.Unlock()
+		Global.mu.Unlock()
 
 		for _, d := range disposables {
 			d()
@@ -56,32 +40,27 @@ func CreateRoot[T any](fn func(dispose DisposeFunc) T) T {
 
 // OnCleanup registers a cleanup function to run when the current owner is disposed.
 func OnCleanup(fn func()) {
-	ownerMu.Lock()
-	defer ownerMu.Unlock()
+	Global.mu.Lock()
+	defer Global.mu.Unlock()
 
-	if currentOwner != nil {
-		currentOwner.disposables = append(currentOwner.disposables, fn)
+	owner := Global.currentOwner
+	if owner != nil {
+		owner.disposables = append(owner.disposables, fn)
 	}
 }
 
 // GetOwner returns the current owner, if any.
 func GetOwner() *Owner {
-	ownerMu.Lock()
-	defer ownerMu.Unlock()
-	return currentOwner
+	return Global.getCurrentOwner()
 }
 
 // RunWithOwner runs a function with a specific owner.
 func RunWithOwner[T any](owner *Owner, fn func() T) T {
-	ownerMu.Lock()
-	prevOwner := currentOwner
-	currentOwner = owner
-	ownerMu.Unlock()
+	prevOwner := Global.getCurrentOwner()
+	Global.setCurrentOwner(owner)
 
 	defer func() {
-		ownerMu.Lock()
-		currentOwner = prevOwner
-		ownerMu.Unlock()
+		Global.setCurrentOwner(prevOwner)
 	}()
 
 	return fn()

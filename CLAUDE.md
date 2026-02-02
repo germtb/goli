@@ -39,8 +39,7 @@ go build ./...
 
 ```
 goli/
-├── *.go              # Core library (pure Go)
-├── signals/          # Reactive primitives
+├── *.go              # Core library (pure Go) including reactive primitives
 ├── examples/         # Example applications
 │   ├── */app.gox     # JSX source (edit these)
 │   └── */main.go     # Pure Go entry points
@@ -70,10 +69,10 @@ func MyComponent(props MyProps) gox.VNode {
 ### Using Signals
 
 ```go
-import "github.com/germtb/goli/signals"
+import "github.com/germtb/goli"
 
-count, setCount := signals.CreateSignal(0)
-signals.SetWith(setCount, func(c int) int { return c + 1 }, count)
+count, setCount := goli.CreateSignal(0)
+goli.SetWith(setCount, func(c int) int { return c + 1 }, count)
 ```
 
 ### Global Key Handlers

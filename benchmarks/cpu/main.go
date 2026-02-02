@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/germtb/goli"
-	"github.com/germtb/goli/signals"
 	"github.com/germtb/gox"
 )
 
@@ -72,7 +71,7 @@ func main() {
 	// Test 3: Measure CPU during rapid signal updates (stress test)
 	fmt.Println("\nTest 3: Measuring CPU during rapid updates (1000/sec for 2 sec)...")
 	output.Reset()
-	counter, setCounter := signals.CreateSignal(0)
+	counter, setCounter := goli.CreateSignal(0)
 	updateCPU := measureCPU(2*time.Second, func(done <-chan struct{}) {
 		app := goli.Render(func() gox.VNode {
 			c := counter()
@@ -105,7 +104,7 @@ func main() {
 	// Test 4: Measure CPU with realistic 60fps updates
 	fmt.Println("\nTest 4: Measuring CPU at 60 updates/sec (2 sec)...")
 	output.Reset()
-	counter2, setCounter2 := signals.CreateSignal(0)
+	counter2, setCounter2 := goli.CreateSignal(0)
 	throttledCPU := measureCPU(2*time.Second, func(done <-chan struct{}) {
 		app := goli.Render(func() gox.VNode {
 			c := counter2()
