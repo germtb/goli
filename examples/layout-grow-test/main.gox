@@ -1,0 +1,54 @@
+// Simple Grow Test - Minimal example to test grow
+//
+// Run with: gox run ./examples/layout-grow-test
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		{/* Fixed header */}
+		<box height={3} style={{ "background": "blue" }}>
+			<text style={{ "color": "white" }}>{"Header (h=3)"}</text>
+		</box>
+
+		{/* This should grow to fill remaining space */}
+		<box grow={1} style={{ "background": "green" }}>
+			<text>{"Body (grow=1) - should fill remaining space"}</text>
+		</box>
+
+		{/* Fixed footer */}
+		<box height={3} style={{ "background": "red" }}>
+			<text style={{ "color": "white" }}>{"Footer (h=3)"}</text>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

@@ -3,6 +3,11 @@ package goli
 
 import "strings"
 
+// MaxBufferHeight is the maximum height a LogicalBuffer can auto-grow to.
+// This prevents runaway memory usage from unbounded growth.
+// 10,000 lines is generous for most TUI applications.
+const MaxBufferHeight = 10000
+
 // CellBuffer is a fixed-size 2D grid of cells representing the terminal screen.
 // This is the core data structure for diffing.
 type CellBuffer struct {
@@ -160,10 +165,16 @@ func (b *LogicalBuffer) Get(x, y int) Cell {
 }
 
 // Set sets the cell at logical position (x, y).
-// Extends the row if needed.
+// Extends the row if needed. Grows the buffer if y exceeds current height.
+// Will not grow beyond MaxBufferHeight.
 func (b *LogicalBuffer) Set(x, y int, c Cell) {
-	if y < 0 || y >= b.height || x < 0 {
+	if x < 0 || y < 0 || y >= MaxBufferHeight {
 		return
+	}
+	// Grow buffer if needed
+	for y >= b.height {
+		b.rows = append(b.rows, LogicalRow{Cells: nil})
+		b.height++
 	}
 	row := &b.rows[y]
 
@@ -176,9 +187,15 @@ func (b *LogicalBuffer) Set(x, y int, c Cell) {
 
 // SetMerge sets a cell, merging style with existing cell.
 // Preserves background color if the new style doesn't specify one.
+// Grows the buffer if y exceeds current height. Will not grow beyond MaxBufferHeight.
 func (b *LogicalBuffer) SetMerge(x, y int, c Cell) {
-	if y < 0 || y >= b.height || x < 0 {
+	if x < 0 || y < 0 || y >= MaxBufferHeight {
 		return
+	}
+	// Grow buffer if needed
+	for y >= b.height {
+		b.rows = append(b.rows, LogicalRow{Cells: nil})
+		b.height++
 	}
 	row := &b.rows[y]
 

@@ -127,14 +127,25 @@ func layoutBox(node gox.VNode, availWidth, availHeight int, ctx *LayoutContext) 
 	gap := GetIntProp(node.Props, "gap", 0)
 
 	// Calculate box dimensions
+	// Both width and height fill available space by default (block-like)
+	// Use explicit width/height props to constrain size
+	// Use grow property for flex children to distribute extra space
 	measuredW, measuredH := measureBox(node, nil)
 	boxWidth := GetIntProp(node.Props, "width", -1)
 	if boxWidth < 0 {
-		boxWidth = min(measuredW, availWidth-margin.Left-margin.Right)
+		// Width fills available space
+		boxWidth = availWidth - margin.Left - margin.Right
+		if boxWidth < 0 {
+			boxWidth = measuredW
+		}
 	}
 	boxHeight := GetIntProp(node.Props, "height", -1)
 	if boxHeight < 0 {
-		boxHeight = measuredH
+		// Height fills available space
+		boxHeight = availHeight - margin.Top - margin.Bottom
+		if boxHeight < 0 {
+			boxHeight = measuredH
+		}
 	}
 
 	// Box position (respecting margin)

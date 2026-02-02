@@ -87,14 +87,26 @@ func (r *Renderer) Render(root gox.VNode) {
 	// Render to logical buffer
 	RenderToLogicalBuffer(layoutBox, r.nextLogical, nil)
 
+	// Get actual content height (may exceed terminal height)
+	contentHeight := r.nextLogical.Height()
+	if layoutBox.Height > contentHeight {
+		contentHeight = layoutBox.Height
+	}
+
 	// Clear next visual buffer (Clear() already sets all cells to EmptyCell)
 	r.nextVisual.Clear()
+
+	// Resize visual buffers if content exceeds current size
+	if contentHeight > r.nextVisual.Height() {
+		r.nextVisual = NewCellBuffer(r.width, contentHeight)
+		r.currentVisual = NewCellBuffer(r.width, contentHeight)
+	}
 
 	// Convert logical to visual rows
 	visualRows := r.nextLogical.ToVisualRows(r.width)
 
-	// Copy visual rows to visual buffer
-	for vy := 0; vy < len(visualRows.Rows) && vy < r.height; vy++ {
+	// Copy all visual rows (no clipping at terminal height)
+	for vy := 0; vy < len(visualRows.Rows); vy++ {
 		row := visualRows.Rows[vy]
 		for x := 0; x < len(row); x++ {
 			r.nextVisual.Set(x, vy, row[x])
@@ -107,12 +119,21 @@ func (r *Renderer) Render(root gox.VNode) {
 		r.isFirstRender = false
 	}
 
-	changes := DiffBuffers(r.currentVisual, r.nextVisual)
-
-	if len(changes) > 0 {
-		runs := FindRuns(changes)
-		ansiOutput := RunsToAnsi(runs)
+	// Check if content exceeds terminal height - use sequential output for overflow
+	if contentHeight > r.height {
+		// Overflow mode: output entire buffer sequentially with newlines
+		// ANSI cursor positioning doesn't work beyond terminal height
+		ansiOutput := BufferToSequentialAnsi(r.nextVisual)
 		io.WriteString(r.output, ansiOutput)
+	} else {
+		// Normal mode: use diff-based updates with cursor positioning
+		changes := DiffBuffers(r.currentVisual, r.nextVisual)
+
+		if len(changes) > 0 {
+			runs := FindRuns(changes)
+			ansiOutput := RunsToAnsi(runs)
+			io.WriteString(r.output, ansiOutput)
+		}
 	}
 
 	// Swap buffers

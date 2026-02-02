@@ -13,6 +13,11 @@
 /test-select
 /vim
 /perf-*
+/dashboard
+/dashboard-simple
+/layout-*
+/overflow-*
+/button-demo
 
 # Example binaries
 examples/*/vim

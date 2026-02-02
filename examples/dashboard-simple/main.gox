@@ -1,0 +1,54 @@
+// Simple Dashboard Test - Minimal nested grow example
+//
+// Run with: gox run ./examples/dashboard-simple
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		{/* Header */}
+		<box height={3} style={{ "background": "blue" }}>
+			<text style={{ "color": "white" }}>{"Header (h=3)"}</text>
+		</box>
+
+		{/* Body with nested grow */}
+		<box direction="column" grow={1} style={{ "background": "black" }}>
+			<box height={5} style={{ "background": "green" }}>
+				<text>{"Stats row (h=5)"}</text>
+			</box>
+			<box grow={1} style={{ "background": "magenta" }}>
+				<text>{"Content (grow=1)"}</text>
+			</box>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

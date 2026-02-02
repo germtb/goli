@@ -53,6 +53,8 @@ type Style struct {
 	// RGB colors (only used when Color/Background need 24-bit)
 	ColorRGB      *RGB
 	BackgroundRGB *RGB
+	// HyperlinkURL for OSC 8 terminal hyperlinks
+	HyperlinkURL string
 }
 
 // Cell represents a single "pixel" in the terminal.
@@ -90,6 +92,9 @@ func (a Style) Equal(b Style) bool {
 	if a.Bold != b.Bold || a.Dim != b.Dim || a.Italic != b.Italic ||
 		a.Underline != b.Underline || a.Inverse != b.Inverse ||
 		a.Strikethrough != b.Strikethrough {
+		return false
+	}
+	if a.HyperlinkURL != b.HyperlinkURL {
 		return false
 	}
 	// Compare RGB if present
@@ -149,6 +154,9 @@ func (base Style) Merge(overlay Style) Style {
 	}
 	if overlay.Strikethrough {
 		result.Strikethrough = true
+	}
+	if overlay.HyperlinkURL != "" {
+		result.HyperlinkURL = overlay.HyperlinkURL
 	}
 
 	return result

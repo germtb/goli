@@ -9,6 +9,8 @@ import (
 const (
 	ESC = "\x1b"
 	CSI = ESC + "["
+	OSC = ESC + "]"
+	ST  = ESC + "\\" // String Terminator
 )
 
 // Pre-computed ANSI escape sequences
@@ -21,6 +23,8 @@ const (
 	underStr  = "\x1b[4m"
 	invStr    = "\x1b[7m"
 	strikeStr = "\x1b[9m"
+	// OSC 8 hyperlink end
+	hyperlinkEnd = "\x1b]8;;\x1b\\"
 )
 
 // MoveCursor returns the ANSI code to move the cursor to (x, y).
@@ -120,6 +124,16 @@ func StyleToAnsi(style Style, sb *strings.Builder) {
 	}
 }
 
+// HyperlinkStart returns the OSC 8 sequence to start a hyperlink.
+func HyperlinkStart(url string) string {
+	return "\x1b]8;;" + url + "\x1b\\"
+}
+
+// HyperlinkEnd returns the OSC 8 sequence to end a hyperlink.
+func HyperlinkEnd() string {
+	return hyperlinkEnd
+}
+
 // CellRun represents a run of consecutive cells.
 type CellRun struct {
 	X     int
@@ -132,18 +146,44 @@ func RunToAnsi(run CellRun, sb *strings.Builder) {
 	sb.WriteString(MoveCursor(run.X, run.Y))
 
 	var currentStyle *Style
+	currentHyperlink := ""
 
 	for _, c := range run.Cells {
 		styleChanged := currentStyle == nil || !currentStyle.Equal(c.Style)
+		hyperlinkChanged := c.Style.HyperlinkURL != currentHyperlink
 
+		// If style changed, we need to reset and reapply everything
 		if styleChanged {
+			// End current hyperlink before reset (if any)
+			if currentHyperlink != "" {
+				sb.WriteString(hyperlinkEnd)
+			}
 			sb.WriteString(resetStr)
 			StyleToAnsi(c.Style, sb)
+			// Apply new hyperlink after style (if any)
+			if c.Style.HyperlinkURL != "" {
+				sb.WriteString(HyperlinkStart(c.Style.HyperlinkURL))
+			}
+			currentHyperlink = c.Style.HyperlinkURL
 			styleCopy := c.Style
 			currentStyle = &styleCopy
+		} else if hyperlinkChanged {
+			// Style same but hyperlink changed - just update hyperlink
+			if currentHyperlink != "" {
+				sb.WriteString(hyperlinkEnd)
+			}
+			if c.Style.HyperlinkURL != "" {
+				sb.WriteString(HyperlinkStart(c.Style.HyperlinkURL))
+			}
+			currentHyperlink = c.Style.HyperlinkURL
 		}
 
 		sb.WriteRune(c.Char)
+	}
+
+	// End any open hyperlink
+	if currentHyperlink != "" {
+		sb.WriteString(hyperlinkEnd)
 	}
 }
 
@@ -183,4 +223,77 @@ func RunsToAnsiBuilder(runs []CellRun, sb *strings.Builder) {
 	}
 
 	sb.WriteString(resetStr)
+}
+
+// BufferToSequentialAnsi renders a CellBuffer line-by-line with newlines.
+// This is used for overflow content where ANSI cursor positioning doesn't work.
+// Outputs from cursor position (0,0) downward, using newlines to advance rows.
+func BufferToSequentialAnsi(buf *CellBuffer) string {
+	var sb strings.Builder
+	// Estimate ~15 bytes per cell
+	sb.Grow(buf.Width() * buf.Height() * 15)
+
+	// Move to home position first
+	sb.WriteString(MoveCursor(0, 0))
+
+	var currentStyle *Style
+	currentHyperlink := ""
+
+	for y := 0; y < buf.Height(); y++ {
+		if y > 0 {
+			// End any styles before newline, then newline, then continue
+			if currentStyle != nil {
+				sb.WriteString(resetStr)
+				currentStyle = nil
+			}
+			if currentHyperlink != "" {
+				sb.WriteString(hyperlinkEnd)
+				currentHyperlink = ""
+			}
+			sb.WriteString("\r\n")
+		}
+
+		for x := 0; x < buf.Width(); x++ {
+			c := buf.Get(x, y)
+
+			styleChanged := currentStyle == nil || !currentStyle.Equal(c.Style)
+			hyperlinkChanged := c.Style.HyperlinkURL != currentHyperlink
+
+			// If style changed, we need to reset and reapply everything
+			if styleChanged {
+				// End current hyperlink before reset (if any)
+				if currentHyperlink != "" {
+					sb.WriteString(hyperlinkEnd)
+				}
+				sb.WriteString(resetStr)
+				StyleToAnsi(c.Style, &sb)
+				// Apply new hyperlink after style (if any)
+				if c.Style.HyperlinkURL != "" {
+					sb.WriteString(HyperlinkStart(c.Style.HyperlinkURL))
+				}
+				currentHyperlink = c.Style.HyperlinkURL
+				styleCopy := c.Style
+				currentStyle = &styleCopy
+			} else if hyperlinkChanged {
+				// Style same but hyperlink changed - just update hyperlink
+				if currentHyperlink != "" {
+					sb.WriteString(hyperlinkEnd)
+				}
+				if c.Style.HyperlinkURL != "" {
+					sb.WriteString(HyperlinkStart(c.Style.HyperlinkURL))
+				}
+				currentHyperlink = c.Style.HyperlinkURL
+			}
+
+			sb.WriteRune(c.Char)
+		}
+	}
+
+	// End any open hyperlink and reset
+	if currentHyperlink != "" {
+		sb.WriteString(hyperlinkEnd)
+	}
+	sb.WriteString(resetStr)
+
+	return sb.String()
 }

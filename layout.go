@@ -558,14 +558,25 @@ func layoutNode(node gox.VNode, ctx LayoutContext) LayoutResult {
 	gap := GetIntProp(node.Props, "gap", 0)
 
 	// Calculate box dimensions
+	// Both width and height fill available space by default (block-like)
+	// Use explicit width/height props to constrain size
+	// Use grow property for flex children to distribute extra space
 	measuredW, measuredH := measureNode(node)
 	boxWidth := GetIntProp(node.Props, "width", -1)
 	if boxWidth < 0 {
-		boxWidth = min(measuredW, ctx.Width-margin.Left-margin.Right)
+		// Width fills available space
+		boxWidth = ctx.Width - margin.Left - margin.Right
+		if boxWidth < 0 {
+			boxWidth = measuredW
+		}
 	}
 	boxHeight := GetIntProp(node.Props, "height", -1)
 	if boxHeight < 0 {
-		boxHeight = measuredH
+		// Height fills available space
+		boxHeight = ctx.Height - margin.Top - margin.Bottom
+		if boxHeight < 0 {
+			boxHeight = measuredH
+		}
 	}
 
 	// Box position (respecting margin)
@@ -746,6 +757,32 @@ func layoutFlexChildren(
 		availableCross = ctx.Width
 	}
 
+	// Calculate grow values and distribute extra space
+	// Children with explicit main-axis size (width for row, height for column) don't participate in grow
+	totalGrow := 0
+	growValues := make([]int, len(children))
+	for i, child := range children {
+		grow := GetIntProp(child.node.Props, "grow", 0)
+		// Check if child has explicit main-axis size - if so, don't let it grow
+		if isRow {
+			if GetIntProp(child.node.Props, "width", -1) >= 0 {
+				grow = 0
+			}
+		} else {
+			if GetIntProp(child.node.Props, "height", -1) >= 0 {
+				grow = 0
+			}
+		}
+		growValues[i] = grow
+		totalGrow += grow
+	}
+
+	// Calculate extra space for growing children
+	extraSpace := 0
+	if totalGrow > 0 && availableMain > totalMainSize {
+		extraSpace = availableMain - totalMainSize
+	}
+
 	// Calculate starting position and spacing based on justify
 	mainPos := 0
 	extraGap := 0
@@ -772,7 +809,7 @@ func layoutFlexChildren(
 	// Layout each child
 	var boxes []*LayoutBox
 
-	for _, child := range children {
+	for i, child := range children {
 		margin := NormalizeSpacing(child.node.Props["margin"])
 		var childMainSize, childCrossSize int
 		var mainMarginBefore, mainMarginAfter int
@@ -789,19 +826,33 @@ func layoutFlexChildren(
 			mainMarginAfter = margin.Bottom
 		}
 
-		// Calculate cross-axis position
+		// Apply grow if applicable
+		if totalGrow > 0 && growValues[i] > 0 {
+			growShare := (extraSpace * growValues[i]) / totalGrow
+			childMainSize += growShare
+		}
+
+		// Calculate cross-axis position and size
+		// Default: stretch to fill (CSS flex default is align-items: stretch)
+		// Non-stretch alignments use intrinsic size
 		crossPos := 0
-		actualCrossSize := min(childCrossSize, availableCross)
+		actualCrossSize := childCrossSize // Default to intrinsic size
 
 		switch align {
 		case AlignStart:
 			crossPos = 0
+			actualCrossSize = childCrossSize
 		case AlignCenter:
-			crossPos = max(0, (availableCross-actualCrossSize)/2)
+			crossPos = max(0, (availableCross-childCrossSize)/2)
+			actualCrossSize = childCrossSize
 		case AlignEnd:
-			crossPos = max(0, availableCross-actualCrossSize)
+			crossPos = max(0, availableCross-childCrossSize)
+			actualCrossSize = childCrossSize
 		case AlignStretch:
 			crossPos = 0
+			actualCrossSize = availableCross
+		default:
+			// Default behavior is stretch (CSS flex default)
 			actualCrossSize = availableCross
 		}
 
@@ -976,11 +1027,11 @@ func GetAlign(props gox.Props) Align {
 
 func getAlign(props gox.Props) Align {
 	if props == nil {
-		return AlignStart
+		return AlignStretch
 	}
 	v, ok := props["align"]
 	if !ok {
-		return AlignStart
+		return AlignStretch
 	}
 	if s, ok := v.(string); ok {
 		return Align(s)
@@ -988,7 +1039,7 @@ func getAlign(props gox.Props) Align {
 	if a, ok := v.(Align); ok {
 		return a
 	}
-	return AlignStart
+	return AlignStretch
 }
 
 func getPosition(props gox.Props) Position {

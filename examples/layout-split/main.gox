@@ -1,0 +1,67 @@
+// Simple Split Layout - Tests grow ratios without dynamic children
+//
+// Run with: gox run ./examples/layout-split
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		{/* Header */}
+		<box height={3} padding={1} style={{ "background": "blue" }}>
+			<text style={{ "bold": true, "color": "white" }}>{"SPLIT LAYOUTS - 50/50 Demo"}</text>
+		</box>
+
+		{/* Split area - grows with 50/50 split */}
+		<box direction="row" grow={1} align="stretch">
+			<box grow={1} padding={1} style={{ "background": "green" }}>
+				<box direction="column">
+					<text style={{ "bold": true }}>{"Left Panel"}</text>
+					<text>{"grow=1"}</text>
+					<text>{"50% of space"}</text>
+				</box>
+			</box>
+			<box grow={1} padding={1} style={{ "background": "magenta" }}>
+				<box direction="column">
+					<text style={{ "bold": true }}>{"Right Panel"}</text>
+					<text>{"grow=1"}</text>
+					<text>{"50% of space"}</text>
+				</box>
+			</box>
+		</box>
+
+		{/* Footer */}
+		<box height={2} padding={{ "left": 1 }} style={{ "background": "black" }}>
+			<text style={{ "dim": true }}>{"Ctrl+Q: quit"}</text>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

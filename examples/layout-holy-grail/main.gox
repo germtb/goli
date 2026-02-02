@@ -1,0 +1,88 @@
+// Holy Grail Layout - Classic web layout pattern
+// Header (fixed) + 3-column body (sidebar | main | aside) + Footer (fixed)
+//
+// Run with: gox run ./examples/layout-holy-grail
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		{/* Header - fixed height */}
+		<box height={3} padding={1} style={{ "background": "blue" }}>
+			<text style={{ "bold": true, "color": "white" }}>{"HOLY GRAIL LAYOUT - Header (fixed h=3)"}</text>
+		</box>
+
+		{/* Body - grows to fill space, contains 3 columns */}
+		<box direction="row" grow={1} align="stretch">
+			{/* Left Sidebar - fixed width */}
+			<box width={20} padding={1} style={{ "background": "green" }}>
+				<box direction="column" gap={1}>
+					<text style={{ "bold": true }}>{"Sidebar"}</text>
+					<text style={{ "dim": true }}>{"w=20 (fixed)"}</text>
+					<text>{"- Nav 1"}</text>
+					<text>{"- Nav 2"}</text>
+					<text>{"- Nav 3"}</text>
+				</box>
+			</box>
+
+			{/* Main Content - grows to fill */}
+			<box grow={1} padding={1} style={{ "background": "magenta" }}>
+				<box direction="column" gap={1}>
+					<text style={{ "bold": true }}>{"Main Content"}</text>
+					<text style={{ "dim": true }}>{"grow=1 (expands)"}</text>
+					<text>{""}</text>
+					<text>{"This area grows to fill"}</text>
+					<text>{"all available space."}</text>
+					<text>{""}</text>
+					<text>{"Resize the terminal to"}</text>
+					<text>{"see it expand/contract."}</text>
+				</box>
+			</box>
+
+			{/* Right Aside - fixed width */}
+			<box width={15} padding={1} style={{ "background": "cyan" }}>
+				<box direction="column" gap={1}>
+					<text style={{ "bold": true }}>{"Aside"}</text>
+					<text style={{ "dim": true }}>{"w=15"}</text>
+					<text>{"Widget 1"}</text>
+					<text>{"Widget 2"}</text>
+				</box>
+			</box>
+		</box>
+
+		{/* Footer - fixed height */}
+		<box height={3} padding={1} style={{ "background": "red" }}>
+			<text style={{ "color": "white" }}>{"Footer (fixed h=3) | Ctrl+Q to quit"}</text>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

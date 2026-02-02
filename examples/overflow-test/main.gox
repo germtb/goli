@@ -1,0 +1,70 @@
+// Overflow Test - Shows how content clips when larger than container
+//
+// Run with: gox run ./examples/overflow-test
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column" gap={1} padding={1}>
+		<text style={{ "bold": true }}>{"Overflow Test - Ctrl+Q to quit"}</text>
+
+		{/* Without overflow hidden - content may overflow */}
+		<box direction="row" gap={2}>
+			<box width={30} height={5} border="single" style={{ "background": "blue" }}>
+				<box direction="column">
+					<text style={{ "bold": true }}>{"No overflow prop"}</text>
+					<text>{"Line 1"}</text>
+					<text>{"Line 2"}</text>
+					<text>{"Line 3"}</text>
+					<text>{"Line 4 - this may overflow"}</text>
+					<text>{"Line 5 - this will overflow"}</text>
+					<text>{"Line 6 - definitely overflows"}</text>
+				</box>
+			</box>
+
+			<box width={30} height={5} border="single" overflow="hidden" style={{ "background": "green" }}>
+				<box direction="column">
+					<text style={{ "bold": true }}>{"overflow=hidden"}</text>
+					<text>{"Line 1"}</text>
+					<text>{"Line 2"}</text>
+					<text>{"Line 3"}</text>
+					<text>{"Line 4 - this may clip"}</text>
+					<text>{"Line 5 - this will clip"}</text>
+					<text>{"Line 6 - definitely clips"}</text>
+				</box>
+			</box>
+		</box>
+
+		<text style={{ "dim": true }}>{"Left box: content overflows. Right box: content is clipped."}</text>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

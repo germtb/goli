@@ -1,0 +1,152 @@
+// Dashboard Demo showing:
+// - Fixed header with tabs
+// - Flex grow for body section
+// - Stats cards in a row
+// - Main content that grows to fill space
+//
+// Run with: gox run ./examples/dashboard
+
+package main
+
+import (
+	"fmt"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/goli/signals"
+	"github.com/germtb/gox"
+)
+
+// State for active tab
+var activeTab, setActiveTab = signals.CreateSignal(0)
+
+var tabs = []string{"Overview", "Analytics", "Settings"}
+
+type StatCardProps struct {
+	Title string
+	Value string
+	Color string
+}
+
+func StatCard(props StatCardProps, children ...gox.VNode) gox.VNode {
+	return <box border="rounded" padding={1} minWidth={15}>
+		<box direction="column" gap={0}>
+			<text style={{ "dim": true }}>{props.Title}</text>
+			<text style={{ "bold": true, "color": props.Color }}>{props.Value}</text>
+		</box>
+	</box>
+}
+
+type HeaderProps struct {
+	ActiveTab int
+}
+
+func Header(props HeaderProps, children ...gox.VNode) gox.VNode {
+	return <box direction="row" height={3} padding={{ "left": 1, "right": 1 }} style={{ "background": "blue" }}>
+		<text style={{ "bold": true, "color": "white" }}>{"DASHBOARD  "}</text>
+		<text style={{ "color": "white" }}>{"[Overview] [Analytics] [Settings]"}</text>
+	</box>
+}
+
+func renderTabs(active int) gox.VNode {
+	var tabNodes []gox.VNode
+	for i, tab := range tabs {
+		style := map[string]any{"color": "white"}
+		if i == active {
+			style["bold"] = true
+			style["underline"] = true
+		} else {
+			style["dim"] = true
+		}
+		tabNodes = append(tabNodes, <text style={style}>{fmt.Sprintf("[%s]", tab)}</text>)
+	}
+	return <fragment>{tabNodes}</fragment>
+}
+
+type ContentProps struct {
+	ActiveTab int
+}
+
+func Content(props ContentProps, children ...gox.VNode) gox.VNode {
+	switch props.ActiveTab {
+	case 1:
+		return <box direction="column" gap={1}>
+			<text style={{ "bold": true }}>{"Analytics"}</text>
+			<text>{"Charts and graphs would go here..."}</text>
+		</box>
+	case 2:
+		return <box direction="column" gap={1}>
+			<text style={{ "bold": true }}>{"Settings"}</text>
+			<text>{"Configuration options would go here..."}</text>
+		</box>
+	default:
+		return <box direction="column" gap={1}>
+			<text style={{ "bold": true }}>{"Welcome to the Dashboard"}</text>
+			<text>{"Use Tab to cycle through tabs, Ctrl+Q to quit"}</text>
+			<text>{""}</text>
+			<text>{"Recent Activity:"}</text>
+			<text style={{ "dim": true }}>{"  - User logged in"}</text>
+			<text style={{ "dim": true }}>{"  - Report generated"}</text>
+			<text style={{ "dim": true }}>{"  - Settings updated"}</text>
+		</box>
+	}
+}
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	tab := activeTab()
+
+	return <box direction="column">
+		{/* Header - fixed height */}
+		<Header ActiveTab={tab} />
+
+		{/* Body - grows to fill remaining space */}
+		<box direction="column" grow={1} padding={1} gap={1} style={{ "background": "black" }}>
+			{/* Stats row */}
+			<box direction="row" gap={2}>
+				<StatCard Title="Users" Value="1,234" Color="cyan" />
+				<StatCard Title="Revenue" Value="$56,789" Color="green" />
+				<StatCard Title="Growth" Value="89%" Color="yellow" />
+			</box>
+
+			{/* Main content area - also grows */}
+			<box border="single" padding={1} grow={1} style={{ "background": "magenta" }}>
+				<Content ActiveTab={tab} />
+			</box>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		switch key {
+		case goli.CtrlQ:
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		case goli.Tab:
+			signals.SetWith(setActiveTab, func(t int) int {
+				return (t + 1) % len(tabs)
+			}, activeTab)
+			return true
+		case goli.ShiftTab:
+			signals.SetWith(setActiveTab, func(t int) int {
+				return (t - 1 + len(tabs)) % len(tabs)
+			}, activeTab)
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

@@ -1,0 +1,119 @@
+// Nested Grow Layout - Complex nested grow scenarios
+// Tests that grow works correctly at multiple nesting levels
+//
+// Run with: gox run ./examples/layout-nested
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		{/* Header */}
+		<box height={2} padding={{ "left": 1 }} style={{ "background": "white", "color": "black" }}>
+			<text style={{ "bold": true }}>{"NESTED GROW LAYOUT - Multiple nesting levels | Ctrl+Q to quit"}</text>
+		</box>
+
+		{/* Main area with nested grows */}
+		<box direction="row" grow={1}>
+			{/* Left column - fixed */}
+			<box width={25} direction="column" style={{ "background": "blue" }}>
+				<box height={3} padding={1}>
+					<text style={{ "bold": true, "color": "white" }}>{"Fixed Column"}</text>
+				</box>
+				<box grow={1} padding={1} style={{ "background": "green" }}>
+					<box direction="column">
+						<text>{"Nested grow"}</text>
+						<text>{"inside fixed"}</text>
+						<text>{"width column"}</text>
+					</box>
+				</box>
+				<box height={3} padding={1} style={{ "background": "yellow" }}>
+					<text style={{ "color": "black" }}>{"Fixed bottom"}</text>
+				</box>
+			</box>
+
+			{/* Center - grows horizontally, has vertical splits */}
+			<box grow={2} direction="column">
+				{/* Top section - fixed height */}
+				<box height={5} padding={1} style={{ "background": "magenta" }}>
+					<box direction="column">
+						<text style={{ "bold": true }}>{"Fixed Height Top (h=5)"}</text>
+						<text>{"In grow=2 column"}</text>
+					</box>
+				</box>
+
+				{/* Middle - grows vertically, has horizontal splits */}
+				<box grow={1} direction="row">
+					<box grow={1} padding={1} style={{ "background": "cyan" }}>
+						<box direction="column">
+							<text style={{ "bold": true }}>{"Nested A"}</text>
+							<text>{"grow=1"}</text>
+							<text>{"(both axes)"}</text>
+						</box>
+					</box>
+					<box grow={1} padding={1} style={{ "background": "red" }}>
+						<box direction="column">
+							<text style={{ "bold": true, "color": "white" }}>{"Nested B"}</text>
+							<text style={{ "color": "white" }}>{"grow=1"}</text>
+							<text style={{ "color": "white" }}>{"(both axes)"}</text>
+						</box>
+					</box>
+				</box>
+
+				{/* Bottom section - fixed height */}
+				<box height={4} padding={1} style={{ "background": "black" }}>
+					<box direction="column">
+						<text style={{ "color": "white" }}>{"Fixed Height Bottom (h=4)"}</text>
+						<text style={{ "dim": true }}>{"All nested grows above"}</text>
+					</box>
+				</box>
+			</box>
+
+			{/* Right column - grows with ratio */}
+			<box grow={1} direction="column" style={{ "background": "green" }}>
+				<box grow={1} padding={1} style={{ "background": "yellow" }}>
+					<box direction="column">
+						<text style={{ "bold": true, "color": "black" }}>{"Top Right"}</text>
+						<text style={{ "color": "black" }}>{"grow=1"}</text>
+					</box>
+				</box>
+				<box grow={2} padding={1} style={{ "background": "blue" }}>
+					<box direction="column">
+						<text style={{ "bold": true, "color": "white" }}>{"Bottom Right"}</text>
+						<text style={{ "color": "white" }}>{"grow=2"}</text>
+						<text style={{ "color": "white" }}>{"(2x height)"}</text>
+					</box>
+				</box>
+			</box>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}

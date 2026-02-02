@@ -1,0 +1,89 @@
+// Overflow Push Test - Shows content pushing siblings down
+// When content is larger than available space, it expands and pushes footer down
+// The terminal handles scrolling naturally
+//
+// Run with: gox run ./examples/overflow-push
+
+package main
+
+import (
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	return <box direction="column">
+		{/* Fixed header */}
+		<box height={3} padding={1} style={{ "background": "blue" }}>
+			<text style={{ "bold": true, "color": "white" }}>{"OVERFLOW PUSH TEST - Content pushes footer down"}</text>
+		</box>
+
+		{/* Body with lots of content - will expand beyond terminal height */}
+		<box grow={1} padding={1} style={{ "background": "green" }}>
+			<box direction="column">
+				<text style={{ "bold": true }}>{"Body (grow=1) - Many lines of content:"}</text>
+				<text>{""}</text>
+				<text>{"Line 1 - content that fills the body"}</text>
+				<text>{"Line 2 - content that fills the body"}</text>
+				<text>{"Line 3 - content that fills the body"}</text>
+				<text>{"Line 4 - content that fills the body"}</text>
+				<text>{"Line 5 - content that fills the body"}</text>
+				<text>{"Line 6 - content that fills the body"}</text>
+				<text>{"Line 7 - content that fills the body"}</text>
+				<text>{"Line 8 - content that fills the body"}</text>
+				<text>{"Line 9 - content that fills the body"}</text>
+				<text>{"Line 10 - content that fills the body"}</text>
+				<text>{"Line 11 - content that fills the body"}</text>
+				<text>{"Line 12 - content that fills the body"}</text>
+				<text>{"Line 13 - content that fills the body"}</text>
+				<text>{"Line 14 - content that fills the body"}</text>
+				<text>{"Line 15 - content that fills the body"}</text>
+				<text>{"Line 16 - content that fills the body"}</text>
+				<text>{"Line 17 - content that fills the body"}</text>
+				<text>{"Line 18 - content that fills the body"}</text>
+				<text>{"Line 19 - content that fills the body"}</text>
+				<text>{"Line 20 - content that fills the body"}</text>
+				<text>{"Line 21 - content that fills the body"}</text>
+				<text>{"Line 22 - content that fills the body"}</text>
+				<text>{"Line 23 - content that fills the body"}</text>
+				<text>{"Line 24 - content that fills the body"}</text>
+				<text>{"Line 25 - content that fills the body"}</text>
+				<text>{"Line 26 - content that fills the body"}</text>
+				<text>{"Line 27 - content that fills the body"}</text>
+				<text>{"Line 28 - content that fills the body"}</text>
+				<text>{"Line 29 - content that fills the body"}</text>
+				<text>{"Line 30 - LAST LINE"}</text>
+			</box>
+		</box>
+
+		{/* Footer - will be pushed past terminal edge */}
+		<box height={3} padding={1} style={{ "background": "red" }}>
+			<text style={{ "color": "white" }}>{"FOOTER - This gets pushed down by content above"}</text>
+		</box>
+	</box>
+}
+
+func main() {
+	var application *goli.App
+
+	cleanup := goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		if key == goli.CtrlQ {
+			if application != nil {
+				application.Quit()
+			}
+			return true
+		}
+		return false
+	})
+	defer cleanup()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{
+		OnMount: func(a *goli.App) {
+			application = a
+		},
+	})
+}
