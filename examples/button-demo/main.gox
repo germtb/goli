@@ -1,0 +1,173 @@
+// Button Demo showing:
+// - Multiple buttons with focus navigation (Tab/Shift+Tab)
+// - Button click handling
+// - Different corner styles
+// - Clickable links
+//
+// Run with: gox run ./examples/button-demo
+
+package main
+
+import (
+	"fmt"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/goli/signals"
+	"github.com/germtb/gox"
+)
+
+// State for tracking clicks
+var clickCount, setClickCount = signals.CreateSignal(0)
+var lastClicked, setLastClicked = signals.CreateSignal("")
+
+// Buttons
+var submitBtn = goli.NewButton(goli.ButtonOptions{
+	OnClick: func() {
+		signals.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
+		setLastClicked("Submit")
+	},
+})
+
+var cancelBtn = goli.NewButton(goli.ButtonOptions{
+	OnClick: func() {
+		signals.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
+		setLastClicked("Cancel")
+	},
+})
+
+var resetBtn = goli.NewButton(goli.ButtonOptions{
+	OnClick: func() {
+		setClickCount(0)
+		setLastClicked("Reset")
+	},
+})
+
+var infoBtn = goli.NewButton(goli.ButtonOptions{
+	OnClick: func() {
+		signals.SetWith(setClickCount, func(c int) int { return c + 1 }, clickCount)
+		setLastClicked("Info")
+	},
+})
+
+// Link
+var docsLink = goli.NewLink(goli.LinkOptions{
+	URL: "https://github.com/germtb/goli",
+})
+
+// Input field to show mixed focus
+var nameInput = goli.NewInput(goli.InputOptions{
+	Placeholder: "Enter your name",
+})
+
+type AppProps struct{}
+
+func App(props AppProps, children ...gox.VNode) gox.VNode {
+	count := clickCount()
+	last := lastClicked()
+	name := nameInput.Value()
+	if name == "" {
+		name = "Guest"
+	}
+
+	statusText := fmt.Sprintf("Clicks: %d", count)
+	if last != "" {
+		statusText = fmt.Sprintf("Clicks: %d | Last: %s", count, last)
+	}
+
+	return <box padding={1} gap={1} direction="column">
+		{/* Header */}
+		<text style={{ "bold": true, "color": "cyan" }}>{"Button Component Demo"}</text>
+		<text style={{ "dim": true }}>{"Tab/Shift+Tab to navigate | Enter/Space to click"}</text>
+
+		{/* Form Section */}
+		<box border="rounded" padding={1} direction="column" gap={1}>
+			<text style={{ "bold": true }}>{"Welcome, " + name + "!"}</text>
+
+			{/* Name input */}
+			<box direction="row" gap={1}>
+				<text style={{ "dim": true }}>{"Name: "}</text>
+				<text>{"["}</text>
+				<input
+					input={nameInput}
+					width={20}
+					style={{ "color": "white" }}
+					cursorStyle={{ "background": "cyan", "color": "black" }}
+					placeholderStyle={{ "dim": true }}
+				/>
+				<text>{"]"}</text>
+			</box>
+
+			{/* Button row */}
+			<box direction="row" gap={2}>
+				<button
+					button={submitBtn}
+					corners="round"
+					padding={{ "left": 1, "right": 1 }}
+					style={{ "color": "black", "background": "green" }}
+					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
+				>
+					<text>{" Submit "}</text>
+				</button>
+
+				<button
+					button={cancelBtn}
+					corners="round"
+					padding={{ "left": 1, "right": 1 }}
+					style={{ "color": "white", "background": "red" }}
+					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
+				>
+					<text>{" Cancel "}</text>
+				</button>
+
+				<button
+					button={resetBtn}
+					corners="pixel"
+					padding={{ "left": 1, "right": 1 }}
+					style={{ "color": "white", "background": "blue" }}
+					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
+				>
+					<text>{" Reset "}</text>
+				</button>
+
+				<button
+					button={infoBtn}
+					corners="round"
+					padding={{ "left": 1, "right": 1 }}
+					style={{ "color": "white", "background": "magenta" }}
+					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
+				>
+					<text>{" Info "}</text>
+				</button>
+			</box>
+
+			{/* Status */}
+			<text style={{ "dim": true }}>{statusText}</text>
+		</box>
+
+		{/* Corner styles showcase */}
+		<box border="single" padding={1} direction="column" gap={1}>
+			<text style={{ "bold": true }}>{"Corner Styles:"}</text>
+			<text style={{ "dim": true }}>{"pill: ▐ ▌ (half blocks) | pixel: ▟ ▙ (quadrant)"}</text>
+			<text style={{ "dim": true }}>{"round:   (Nerd Font) | arrow:   (Nerd Font)"}</text>
+		</box>
+
+		{/* Link showcase */}
+		<box direction="row" gap={1}>
+			<text style={{ "dim": true }}>{"Documentation: "}</text>
+			<link url={docsLink}>{"github.com/germtb/goli"}</link>
+			<text style={{ "dim": true }}>{" (click or press Enter)"}</text>
+		</box>
+
+		{/* Footer */}
+		<text style={{ "dim": true }}>{"Press Ctrl+C to exit"}</text>
+	</box>
+}
+
+func main() {
+	// Focus first element (the input)
+	nameInput.Focus()
+
+	goli.Run(func() gox.VNode {
+		return <App />
+	}, goli.RunOptions{})
+}
