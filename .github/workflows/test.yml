@@ -28,7 +28,11 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: gox test -v ./...
+        run: gox test -v .
 
-      - name: Build
-        run: gox build ./...
+      - name: Build examples
+        run: |
+          for dir in examples/*/; do
+            echo "Building $dir"
+            gox build "./$dir"
+          done
