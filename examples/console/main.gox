@@ -41,32 +41,29 @@ func App(props AppProps, children ...gox.VNode) gox.VNode {
 }
 
 func main() {
-	// Create a focusable to handle app shortcuts
-	appFocusable := goli.CreateFocusable(goli.FocusableOptions{
-		OnKey: func(key string) bool {
-			switch key {
-			case "+":
-				goli.SetWith(setCount, func(c int) int { return c + 1 }, count)
-				fmt.Printf("Incremented count to %d\n", count())
-				return true
-			case "-":
-				goli.SetWith(setCount, func(c int) int { return c - 1 }, count)
-				fmt.Printf("Decremented count to %d\n", count())
-				return true
-			case "e":
-				fmt.Println("ERROR: This is an error message!")
-				return true
-			case "w":
-				fmt.Println("WARN: This is a warning message!")
-				return true
-			case "i":
-				fmt.Printf("INFO: This is an info message. Count=%d\n", count())
-				return true
-			}
-			return false
-		},
+	// Set global key handler for app shortcuts
+	goli.Manager().SetGlobalKeyHandler(func(key string) bool {
+		switch key {
+		case "+":
+			goli.SetWith(setCount, func(c int) int { return c + 1 }, count)
+			fmt.Printf("Incremented count to %d\n", count())
+			return true
+		case "-":
+			goli.SetWith(setCount, func(c int) int { return c - 1 }, count)
+			fmt.Printf("Decremented count to %d\n", count())
+			return true
+		case "e":
+			fmt.Println("ERROR: This is an error message!")
+			return true
+		case "w":
+			fmt.Println("WARN: This is a warning message!")
+			return true
+		case "i":
+			fmt.Printf("INFO: This is an info message. Count=%d\n", count())
+			return true
+		}
+		return false
 	})
-	appFocusable.Focus()
 
 	goli.Run(func() gox.VNode {
 		return <App />
