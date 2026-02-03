@@ -173,7 +173,7 @@ func (b *Button) Click() {
 // Button measure/layout/render functions
 
 func measureButton(node gox.VNode, ctx *LayoutContext) (int, int) {
-	padding := NormalizeSpacing(node.Props["padding"])
+	padding := GetSpacing(node.Props, "padding")
 
 	// Measure children content (typically just text)
 	contentWidth := 0
@@ -218,8 +218,8 @@ func measureButton(node gox.VNode, ctx *LayoutContext) (int, int) {
 }
 
 func layoutButton(node gox.VNode, availWidth, availHeight int, ctx *LayoutContext) *LayoutBox {
-	padding := NormalizeSpacing(node.Props["padding"])
-	margin := NormalizeSpacing(node.Props["margin"])
+	padding := GetSpacing(node.Props, "padding")
+	margin := GetSpacing(node.Props, "margin")
 
 	// Calculate button dimensions
 	measuredW, measuredH := measureButton(node, nil)

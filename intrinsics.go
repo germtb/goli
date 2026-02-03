@@ -41,7 +41,7 @@ func init() {
 // Box handlers
 
 func measureBox(node gox.VNode, ctx *LayoutContext) (int, int) {
-	padding := NormalizeSpacing(node.Props["padding"])
+	padding := GetSpacing(node.Props, "padding")
 	border := GetBorderStyle(node.Props["border"])
 	borderSize := 0
 	if border != BorderNone {
@@ -113,8 +113,8 @@ func measureBox(node gox.VNode, ctx *LayoutContext) (int, int) {
 func layoutBox(node gox.VNode, availWidth, availHeight int, ctx *LayoutContext) *LayoutBox {
 	var absoluteBoxes []*LayoutBox
 
-	padding := NormalizeSpacing(node.Props["padding"])
-	margin := NormalizeSpacing(node.Props["margin"])
+	padding := GetSpacing(node.Props, "padding")
+	margin := GetSpacing(node.Props, "margin")
 	border := GetBorderStyle(node.Props["border"])
 	borderSize := 0
 	if border != BorderNone {

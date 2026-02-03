@@ -15,7 +15,7 @@ type AppProps struct{}
 func App(props AppProps, children ...gox.VNode) gox.VNode {
 	return <box direction="column">
 		{/* Header */}
-		<box height={2} padding={{ "left": 1 }} style={{ "background": "white", "color": "black" }}>
+		<box height={2} paddingLeft={1} style={{ "background": "white", "color": "black" }}>
 			<text style={{ "bold": true }}>{"NESTED GROW LAYOUT - Multiple nesting levels | Ctrl+Q to quit"}</text>
 		</box>
 

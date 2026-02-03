@@ -145,6 +145,42 @@ func NormalizeSpacing(value any) Spacing {
 	}
 }
 
+// GetSpacing extracts spacing from props, supporting both base prop and directional overrides.
+// For example, GetSpacing(props, "padding") reads "padding" and also
+// "paddingTop", "paddingRight", "paddingBottom", "paddingLeft" as overrides.
+func GetSpacing(props map[string]any, baseProp string) Spacing {
+	// Start with the base prop
+	spacing := NormalizeSpacing(props[baseProp])
+
+	// Override with directional props if present
+	if v, ok := props[baseProp+"Top"]; ok {
+		spacing.Top = getIntFromAny(v)
+	}
+	if v, ok := props[baseProp+"Right"]; ok {
+		spacing.Right = getIntFromAny(v)
+	}
+	if v, ok := props[baseProp+"Bottom"]; ok {
+		spacing.Bottom = getIntFromAny(v)
+	}
+	if v, ok := props[baseProp+"Left"]; ok {
+		spacing.Left = getIntFromAny(v)
+	}
+
+	return spacing
+}
+
+// getIntFromAny converts various numeric types to int.
+func getIntFromAny(v any) int {
+	switch i := v.(type) {
+	case int:
+		return i
+	case float64:
+		return int(i)
+	default:
+		return 0
+	}
+}
+
 func getInt(m map[string]any, key string) int {
 	if v, ok := m[key]; ok {
 		switch i := v.(type) {
@@ -410,7 +446,7 @@ func measureNode(node gox.VNode) (width, height int) {
 	}
 
 	// Handler exists but no Measure - measure children as container
-	padding := NormalizeSpacing(node.Props["padding"])
+	padding := GetSpacing(node.Props, "padding")
 	border := GetBorderStyle(node.Props["border"])
 	borderSize := 0
 	if border != BorderNone {
@@ -544,8 +580,8 @@ func layoutNode(node gox.VNode, ctx LayoutContext) LayoutResult {
 	}
 
 	// Handler exists but no Layout - treat as flex container
-	padding := NormalizeSpacing(node.Props["padding"])
-	margin := NormalizeSpacing(node.Props["margin"])
+	padding := GetSpacing(node.Props, "padding")
+	margin := GetSpacing(node.Props, "margin")
 	border := GetBorderStyle(node.Props["border"])
 	borderSize := 0
 	if border != BorderNone {
@@ -662,7 +698,7 @@ func layoutFragment(node gox.VNode, ctx LayoutContext) LayoutResult {
 			})
 			children = append(children, result.Box)
 			absoluteBoxes = append(absoluteBoxes, result.AbsoluteBoxes...)
-			margin := NormalizeSpacing(child.Props["margin"])
+			margin := GetSpacing(child.Props, "margin")
 			offsetY += result.Box.Height + margin.Bottom
 		}
 	}
@@ -734,7 +770,7 @@ func layoutFlexChildren(
 	// Calculate total size along main axis
 	totalMainSize := 0
 	for i, child := range children {
-		margin := NormalizeSpacing(child.node.Props["margin"])
+		margin := GetSpacing(child.node.Props, "margin")
 		var mainMargin int
 		var mainSize int
 		if isRow {
@@ -783,6 +819,31 @@ func layoutFlexChildren(
 		extraSpace = availableMain - totalMainSize
 	}
 
+	// Pre-calculate grow shares with remainder distribution
+	// This ensures all extra space is used (no rounding loss)
+	growShares := make([]int, len(children))
+	if totalGrow > 0 && extraSpace > 0 {
+		remainingSpace := extraSpace
+		for i := range children {
+			if growValues[i] > 0 {
+				// Calculate this child's share
+				share := (extraSpace * growValues[i]) / totalGrow
+				growShares[i] = share
+				remainingSpace -= share
+			}
+		}
+		// Distribute remainder to growing children (1 extra pixel each until exhausted)
+		for i := range children {
+			if remainingSpace <= 0 {
+				break
+			}
+			if growValues[i] > 0 {
+				growShares[i]++
+				remainingSpace--
+			}
+		}
+	}
+
 	// Calculate starting position and spacing based on justify
 	mainPos := 0
 	extraGap := 0
@@ -810,7 +871,7 @@ func layoutFlexChildren(
 	var boxes []*LayoutBox
 
 	for i, child := range children {
-		margin := NormalizeSpacing(child.node.Props["margin"])
+		margin := GetSpacing(child.node.Props, "margin")
 		var childMainSize, childCrossSize int
 		var mainMarginBefore, mainMarginAfter int
 
@@ -826,10 +887,9 @@ func layoutFlexChildren(
 			mainMarginAfter = margin.Bottom
 		}
 
-		// Apply grow if applicable
-		if totalGrow > 0 && growValues[i] > 0 {
-			growShare := (extraSpace * growValues[i]) / totalGrow
-			childMainSize += growShare
+		// Apply grow if applicable (using pre-calculated shares with remainder distribution)
+		if growShares[i] > 0 {
+			childMainSize += growShares[i]
 		}
 
 		// Calculate cross-axis position and size
@@ -860,13 +920,16 @@ func layoutFlexChildren(
 		if isRow {
 			childX = ctx.X + mainPos
 			childY = ctx.Y + crossPos
-			childWidth = childMainSize
-			childHeight = actualCrossSize
+			// Add margins to available size so layoutBox can subtract them
+			// (flex parent already accounted for margins in space distribution)
+			childWidth = childMainSize + margin.Left + margin.Right
+			childHeight = actualCrossSize + margin.Top + margin.Bottom
 		} else {
 			childX = ctx.X + crossPos
 			childY = ctx.Y + mainPos
-			childWidth = actualCrossSize
-			childHeight = childMainSize
+			// Add margins to available size so layoutBox can subtract them
+			childWidth = actualCrossSize + margin.Left + margin.Right
+			childHeight = childMainSize + margin.Top + margin.Bottom
 		}
 
 		result := layoutNode(child.node, LayoutContext{

@@ -101,7 +101,8 @@ func App(props AppProps, children ...gox.VNode) gox.VNode {
 				<button
 					button={submitBtn}
 					corners="round"
-					padding={{ "left": 1, "right": 1 }}
+					paddingLeft={1}
+					paddingRight={1}
 					style={{ "color": "black", "background": "green" }}
 					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
 				>
@@ -111,7 +112,8 @@ func App(props AppProps, children ...gox.VNode) gox.VNode {
 				<button
 					button={cancelBtn}
 					corners="round"
-					padding={{ "left": 1, "right": 1 }}
+					paddingLeft={1}
+					paddingRight={1}
 					style={{ "color": "white", "background": "red" }}
 					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
 				>
@@ -121,7 +123,8 @@ func App(props AppProps, children ...gox.VNode) gox.VNode {
 				<button
 					button={resetBtn}
 					corners="pixel"
-					padding={{ "left": 1, "right": 1 }}
+					paddingLeft={1}
+					paddingRight={1}
 					style={{ "color": "white", "background": "blue" }}
 					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
 				>
@@ -131,7 +134,8 @@ func App(props AppProps, children ...gox.VNode) gox.VNode {
 				<button
 					button={infoBtn}
 					corners="round"
-					padding={{ "left": 1, "right": 1 }}
+					paddingLeft={1}
+					paddingRight={1}
 					style={{ "color": "white", "background": "magenta" }}
 					focusedStyle={{ "bold": true, "background": "yellow", "color": "black" }}
 				>
