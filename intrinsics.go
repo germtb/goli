@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/germtb/gox"
+	"github.com/mattn/go-runewidth"
 )
 
 func init() {
@@ -447,7 +448,7 @@ func renderText(box *LayoutBox, buf *CellBuffer, clip *ClipRegion) {
 			if IsInClip(charX, lineY, clip) {
 				buf.SetCharMerge(charX, lineY, char, style)
 			}
-			charX++
+			charX += runewidth.RuneWidth(char)
 		}
 	}
 }
@@ -471,7 +472,7 @@ func renderTextLogical(box *LayoutBox, buf *LogicalBuffer, clip *ClipRegion) {
 			if IsInClip(charX, lineY, clip) {
 				buf.SetMerge(charX, lineY, New(char, style))
 			}
-			charX++
+			charX += runewidth.RuneWidth(char)
 		}
 	}
 }

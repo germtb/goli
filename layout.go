@@ -3,9 +3,9 @@ package goli
 
 import (
 	"strings"
-	"unicode/utf8"
 
 	"github.com/germtb/gox"
+	"github.com/mattn/go-runewidth"
 )
 
 // Direction specifies the main axis for flex layout.
@@ -350,9 +350,9 @@ func IntersectClip(a, b *ClipRegion) *ClipRegion {
 	}
 }
 
-// RuneWidth returns the display width of a string (rune count).
+// RuneWidth returns the display width of a string, accounting for wide characters like emojis.
 func RuneWidth(s string) int {
-	return utf8.RuneCountInString(s)
+	return runewidth.StringWidth(s)
 }
 
 // ComputeLayout computes layout for a VNode tree.
