@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/germtb/gox"
+	"github.com/mattn/go-runewidth"
 )
 
 // RenderToBuffer renders a LayoutBox tree to a CellBuffer.
@@ -33,7 +34,7 @@ func RenderToBuffer(box *LayoutBox, buf *CellBuffer, clip *ClipRegion) {
 				if IsInClip(charX, lineY, clip) {
 					buf.SetCharMerge(charX, lineY, char, style)
 				}
-				charX++
+				charX += runewidth.RuneWidth(char)
 			}
 		}
 		return
@@ -88,7 +89,7 @@ func RenderToLogicalBuffer(box *LayoutBox, buf *LogicalBuffer, clip *ClipRegion)
 				if IsInClip(charX, lineY, clip) {
 					buf.SetMerge(charX, lineY, New(char, style))
 				}
-				charX++
+				charX += runewidth.RuneWidth(char)
 			}
 		}
 		return
@@ -394,7 +395,7 @@ func RenderSelectToBuffer(box *LayoutBox, buf *CellBuffer, clip *ClipRegion) {
 			if IsInClip(charX, optY, clip) {
 				buf.SetCharMerge(charX, optY, char, computedStyle)
 			}
-			charX++
+			charX += runewidth.RuneWidth(char)
 		}
 	}
 }
@@ -450,7 +451,7 @@ func RenderSelectToLogicalBuffer(box *LayoutBox, buf *LogicalBuffer, clip *ClipR
 			if IsInClip(charX, optY, clip) {
 				buf.SetMerge(charX, optY, New(char, computedStyle))
 			}
-			charX++
+			charX += runewidth.RuneWidth(char)
 		}
 	}
 }

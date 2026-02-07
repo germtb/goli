@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/germtb/gox"
+	"github.com/mattn/go-runewidth"
 )
 
 // ButtonCornerStyle specifies the button corner appearance.
@@ -358,7 +359,7 @@ func renderButtonChild(box *LayoutBox, buf *CellBuffer, clip *ClipRegion, parent
 				if IsInClip(charX, lineY, clip) {
 					buf.SetCharMerge(charX, lineY, char, parentStyle)
 				}
-				charX++
+				charX += runewidth.RuneWidth(char)
 			}
 		}
 		return
@@ -454,7 +455,7 @@ func renderButtonChildLogical(box *LayoutBox, buf *LogicalBuffer, clip *ClipRegi
 				if IsInClip(charX, lineY, clip) {
 					buf.SetMerge(charX, lineY, New(char, parentStyle))
 				}
-				charX++
+				charX += runewidth.RuneWidth(char)
 			}
 		}
 		return
