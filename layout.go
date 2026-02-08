@@ -3,6 +3,7 @@ package goli
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/germtb/gox"
 	"github.com/mattn/go-runewidth"
@@ -983,17 +984,34 @@ func WrapText(text string, maxWidth int) []string {
 
 		// Need to wrap this line
 		remaining := line
-		for len(remaining) > maxWidth {
-			// Try to find a word boundary
-			breakPoint := strings.LastIndex(remaining[:maxWidth+1], " ")
-
-			// If no space or too early, hard wrap
-			if breakPoint <= 0 || breakPoint < maxWidth/2 {
-				breakPoint = maxWidth
+		for RuneWidth(remaining) > maxWidth {
+			// Walk runes to find the byte offset where display width exceeds maxWidth
+			byteLimit := 0
+			displayWidth := 0
+			lastSpace := -1
+			lastSpaceDisplay := 0
+			for i, r := range remaining {
+				rw := runewidth.RuneWidth(r)
+				if displayWidth+rw > maxWidth {
+					byteLimit = i
+					break
+				}
+				displayWidth += rw
+				if r == ' ' {
+					lastSpace = i
+					lastSpaceDisplay = displayWidth
+				}
+				byteLimit = i + utf8.RuneLen(r)
 			}
 
-			outputLines = append(outputLines, remaining[:breakPoint])
-			remaining = strings.TrimLeft(remaining[breakPoint:], " ")
+			// Try to break at a word boundary
+			if lastSpace > 0 && lastSpaceDisplay >= maxWidth/2 {
+				outputLines = append(outputLines, remaining[:lastSpace])
+				remaining = strings.TrimLeft(remaining[lastSpace:], " ")
+			} else {
+				outputLines = append(outputLines, remaining[:byteLimit])
+				remaining = remaining[byteLimit:]
+			}
 		}
 
 		if len(remaining) > 0 {

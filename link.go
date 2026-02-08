@@ -159,8 +159,8 @@ func measureLink(node gox.VNode, ctx *LayoutContext) (int, int) {
 
 	width := 0
 	for _, line := range lines {
-		if len(line) > width {
-			width = len(line)
+		if w := RuneWidth(line); w > width {
+			width = w
 		}
 	}
 
