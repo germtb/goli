@@ -72,6 +72,9 @@ func NewRenderer(opts Options) *Renderer {
 
 // Render renders a gox VNode tree to the terminal.
 func (r *Renderer) Render(root gox.VNode) {
+	// Increment memo generation for cache management
+	BeginRender()
+
 	// Clear next logical buffer
 	r.nextLogical.Clear()
 

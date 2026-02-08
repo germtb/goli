@@ -1,0 +1,423 @@
+// Goli version of the benchmark UI - a file tree with 100 items
+package main
+
+import (
+	"fmt"
+	"os"
+	"runtime"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+// FileItemProps for the file item component
+type FileItemProps struct {
+	Key      int
+	Index    int
+	Selected bool
+}
+
+func (p FileItemProps) GetKey() int { return p.Key }
+
+func FileItem(props FileItemProps, children ...gox.VNode) gox.VNode {
+	style := map[string]any{"color": "white"}
+	prefix := "  "
+	if props.Selected {
+		style["bold"] = true
+		style["color"] = "cyan"
+		prefix = "> "
+	}
+	return <text style={style}>{fmt.Sprintf("%s├── file-%03d.go", prefix, props.Index)}</text>
+}
+
+// MemoizedFileItem uses shallow equality for fast comparison
+var MemoizedFileItem = goli.Memo(
+	func(props FileItemProps, children ...gox.VNode) gox.VNode {
+		style := map[string]any{"color": "white"}
+		prefix := "  "
+		if props.Selected {
+			style["bold"] = true
+			style["color"] = "cyan"
+			prefix = "> "
+		}
+		return <text style={style}>{fmt.Sprintf("%s├── file-%03d.go", prefix, props.Index)}</text>
+	},
+	goli.ShallowEquals[FileItemProps],
+)
+
+// FileTreeProps for the file tree component
+type FileTreeProps struct {
+	SelectedIndex int
+}
+
+func FileTree(props FileTreeProps, children ...gox.VNode) gox.VNode {
+	var items []gox.VNode
+	for i := 0; i < 100; i++ {
+		items = append(items, <FileItem Index={i} Selected={i == props.SelectedIndex} />)
+	}
+
+	return <box direction="column" border="rounded" padding={1}>
+		<text style={{ "bold": true, "color": "green" }}>{"File Browser (goli)"}</text>
+		<box height={1} />
+		<fragment>{items}</fragment>
+	</box>
+}
+
+func MemoizedFileTree(props FileTreeProps, children ...gox.VNode) gox.VNode {
+	var items []gox.VNode
+	for i := 0; i < 100; i++ {
+		items = append(items, MemoizedFileItem(FileItemProps{
+			Key:      i,
+			Index:    i,
+			Selected: i == props.SelectedIndex,
+		}))
+	}
+
+	return <box direction="column" border="rounded" padding={1}>
+		<text style={{ "bold": true, "color": "green" }}>{"File Browser (goli)"}</text>
+		<box height={1} />
+		<fragment>{items}</fragment>
+	</box>
+}
+
+// LargeGridProps for the stress test grid
+type LargeGridProps struct {
+	Rows      int
+	Cols      int
+	Highlight int
+}
+
+func LargeGrid(props LargeGridProps, children ...gox.VNode) gox.VNode {
+	var rowNodes []gox.VNode
+	for r := 0; r < props.Rows; r++ {
+		var cells []gox.VNode
+		for c := 0; c < props.Cols; c++ {
+			idx := r*props.Cols + c
+			style := map[string]any{"color": "white"}
+			char := "·"
+			if idx == props.Highlight {
+				style["color"] = "cyan"
+				style["bold"] = true
+				char = "█"
+			}
+			cells = append(cells, <text style={style}>{char}</text>)
+		}
+		rowNodes = append(rowNodes, <box direction="row">{cells}</box>)
+	}
+	return <box direction="column">{rowNodes}</box>
+}
+
+// CellProps for memoized grid cell
+type CellProps struct {
+	Key       int
+	Index     int
+	Highlight bool
+}
+
+func (p CellProps) GetKey() int { return p.Key }
+
+// MemoizedCell uses shallow equality (==)
+var MemoizedCell = goli.Memo(
+	func(props CellProps, children ...gox.VNode) gox.VNode {
+		style := map[string]any{"color": "white"}
+		char := "·"
+		if props.Highlight {
+			style["color"] = "cyan"
+			style["bold"] = true
+			char = "█"
+		}
+		return <text style={style}>{char}</text>
+	},
+	goli.ShallowEquals[CellProps],
+)
+
+func MemoizedLargeGrid(props LargeGridProps, children ...gox.VNode) gox.VNode {
+	var rowNodes []gox.VNode
+	for r := 0; r < props.Rows; r++ {
+		var cells []gox.VNode
+		for c := 0; c < props.Cols; c++ {
+			idx := r*props.Cols + c
+			cells = append(cells, MemoizedCell(CellProps{
+				Key:       idx,
+				Index:     idx,
+				Highlight: idx == props.Highlight,
+			}))
+		}
+		rowNodes = append(rowNodes, <box direction="row">{cells}</box>)
+	}
+	return <box direction="column">{rowNodes}</box>
+}
+
+func main() {
+	mode := "benchmark"
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
+
+	switch mode {
+	case "startup":
+		measureStartup()
+	case "memory":
+		measureMemory()
+	case "idle":
+		measureIdleCPU()
+	case "updates":
+		measureUpdates()
+	case "fps":
+		measureFPS()
+	case "large":
+		measureLargeScreen()
+	case "benchmark":
+		runAllBenchmarks()
+	default:
+		fmt.Println("Usage: goli-bench [startup|memory|idle|updates|fps|large|benchmark]")
+	}
+}
+
+func runAllBenchmarks() {
+	fmt.Println("=== goli Benchmark ===")
+	fmt.Printf("Go version: %s\n\n", runtime.Version())
+
+	measureStartup()
+	measureMemory()
+	measureIdleCPU()
+	measureUpdates()
+	measureFPS()
+	measureLargeScreen()
+}
+
+func measureStartup() {
+	start := time.Now()
+
+	var output strings.Builder
+	selected, _ := goli.CreateSignal(0)
+
+	app := goli.Render(func() gox.VNode {
+		return <FileTree SelectedIndex={selected()} />
+	}, goli.Options{
+		Width:  60,
+		Height: 40,
+		Output: &output,
+	})
+
+	elapsed := time.Since(start)
+	app.Dispose()
+
+	fmt.Printf("Startup time: %v\n", elapsed)
+}
+
+func measureMemory() {
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+
+	var output strings.Builder
+	selected, _ := goli.CreateSignal(0)
+
+	app := goli.Render(func() gox.VNode {
+		return <FileTree SelectedIndex={selected()} />
+	}, goli.Options{
+		Width:  60,
+		Height: 40,
+		Output: &output,
+	})
+
+	runtime.GC()
+	var m2 runtime.MemStats
+	runtime.ReadMemStats(&m2)
+
+	app.Dispose()
+
+	fmt.Printf("Memory used: %.2f MB\n", float64(m2.Alloc-m1.Alloc)/(1024*1024))
+	fmt.Printf("Total alloc: %.2f MB\n", float64(m2.TotalAlloc-m1.TotalAlloc)/(1024*1024))
+}
+
+func measureIdleCPU() {
+	var output strings.Builder
+	selected, _ := goli.CreateSignal(0)
+
+	app := goli.Render(func() gox.VNode {
+		return <FileTree SelectedIndex={selected()} />
+	}, goli.Options{
+		Width:  60,
+		Height: 40,
+		Output: &output,
+	})
+
+	// Measure CPU over 2 seconds idle
+	var rusageStart syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &rusageStart)
+	startTime := time.Now()
+
+	time.Sleep(2 * time.Second)
+
+	var rusageEnd syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &rusageEnd)
+	elapsed := time.Since(startTime)
+
+	app.Dispose()
+
+	userStart := time.Duration(rusageStart.Utime.Nano())
+	userEnd := time.Duration(rusageEnd.Utime.Nano())
+	sysStart := time.Duration(rusageStart.Stime.Nano())
+	sysEnd := time.Duration(rusageEnd.Stime.Nano())
+
+	cpuUsed := (userEnd - userStart) + (sysEnd - sysStart)
+	cpuPercent := (float64(cpuUsed) / float64(elapsed)) * 100
+
+	fmt.Printf("Idle CPU: %.2f%%\n", cpuPercent)
+}
+
+func measureUpdates() {
+	var output strings.Builder
+	selected, setSelected := goli.CreateSignal(0)
+
+	app := goli.Render(func() gox.VNode {
+		return <FileTree SelectedIndex={selected()} />
+	}, goli.Options{
+		Width:           60,
+		Height:          40,
+		Output:          &output,
+		DisableThrottle: true,
+	})
+
+	// Measure 1000 updates
+	start := time.Now()
+	for i := 0; i < 1000; i++ {
+		setSelected(i % 100)
+	}
+	elapsed := time.Since(start)
+
+	app.Dispose()
+
+	fmt.Printf("1000 updates: %v (%.0f updates/sec)\n", elapsed, 1000/elapsed.Seconds())
+}
+
+func measureFPS() {
+	// Naive version
+	var output strings.Builder
+	selected, setSelected := goli.CreateSignal(0)
+	renderCount := 0
+
+	app := goli.Render(func() gox.VNode {
+		renderCount++
+		return <FileTree SelectedIndex={selected()} />
+	}, goli.Options{
+		Width:           60,
+		Height:          40,
+		Output:          &output,
+		DisableThrottle: true,
+	})
+
+	renderCount = 0
+	start := time.Now()
+	deadline := start.Add(1 * time.Second)
+
+	for time.Now().Before(deadline) {
+		setSelected((selected() + 1) % 100)
+	}
+
+	elapsed := time.Since(start)
+	app.Dispose()
+
+	naiveFPS := float64(renderCount) / elapsed.Seconds()
+
+	// Memoized version
+	output.Reset()
+	selected2, setSelected2 := goli.CreateSignal(0)
+	renderCount = 0
+
+	app2 := goli.Render(func() gox.VNode {
+		renderCount++
+		return MemoizedFileTree(FileTreeProps{SelectedIndex: selected2()})
+	}, goli.Options{
+		Width:           60,
+		Height:          40,
+		Output:          &output,
+		DisableThrottle: true,
+	})
+
+	renderCount = 0
+	start = time.Now()
+	deadline = start.Add(1 * time.Second)
+
+	for time.Now().Before(deadline) {
+		setSelected2((selected2() + 1) % 100)
+	}
+
+	elapsed = time.Since(start)
+	app2.Dispose()
+
+	memoFPS := float64(renderCount) / elapsed.Seconds()
+
+	fmt.Printf("Max FPS (naive): %.0f (60x40 screen, 100 items)\n", naiveFPS)
+	fmt.Printf("Max FPS (memo):  %.0f (60x40 screen, 100 items)\n", memoFPS)
+}
+
+func measureLargeScreen() {
+	// Test with 200x50 = 10,000 cells
+	rows, cols := 50, 200
+	totalCells := rows * cols
+
+	// Naive version
+	var output strings.Builder
+	highlight, setHighlight := goli.CreateSignal(0)
+	renderCount := 0
+
+	app := goli.Render(func() gox.VNode {
+		renderCount++
+		return <LargeGrid Rows={rows} Cols={cols} Highlight={highlight()} />
+	}, goli.Options{
+		Width:           cols,
+		Height:          rows,
+		Output:          &output,
+		DisableThrottle: true,
+	})
+
+	renderCount = 0
+	start := time.Now()
+	deadline := start.Add(1 * time.Second)
+
+	for time.Now().Before(deadline) {
+		setHighlight((highlight() + 1) % totalCells)
+	}
+
+	elapsed := time.Since(start)
+	app.Dispose()
+
+	naiveFPS := float64(renderCount) / elapsed.Seconds()
+
+	// Memoized version
+	output.Reset()
+	highlight2, setHighlight2 := goli.CreateSignal(0)
+	renderCount = 0
+
+	app2 := goli.Render(func() gox.VNode {
+		renderCount++
+		return MemoizedLargeGrid(LargeGridProps{Rows: rows, Cols: cols, Highlight: highlight2()})
+	}, goli.Options{
+		Width:           cols,
+		Height:          rows,
+		Output:          &output,
+		DisableThrottle: true,
+	})
+
+	renderCount = 0
+	start = time.Now()
+	deadline = start.Add(1 * time.Second)
+
+	for time.Now().Before(deadline) {
+		setHighlight2((highlight2() + 1) % totalCells)
+	}
+
+	elapsed = time.Since(start)
+	app2.Dispose()
+
+	memoFPS := float64(renderCount) / elapsed.Seconds()
+
+	fmt.Printf("Large screen FPS (naive): %.0f (%dx%d = %d cells)\n", naiveFPS, cols, rows, totalCells)
+	fmt.Printf("Large screen FPS (memo):  %.0f (%dx%d = %d cells)\n", memoFPS, cols, rows, totalCells)
+}
