@@ -225,6 +225,69 @@ func RunsToAnsiBuilder(runs []CellRun, sb *strings.Builder) {
 	sb.WriteString(resetStr)
 }
 
+// bufferToAnsiLines renders a CellBuffer to ANSI output suitable for printing.
+// Unlike BufferToSequentialAnsi, it uses no cursor positioning and \n line separators.
+// Only outputs rows 0..maxRow (inclusive).
+func bufferToAnsiLines(buf *CellBuffer, maxRow int) string {
+	var sb strings.Builder
+	sb.Grow(buf.Width() * (maxRow + 1) * 15)
+
+	var currentStyle *Style
+	currentHyperlink := ""
+
+	for y := 0; y <= maxRow; y++ {
+		if y > 0 {
+			if currentStyle != nil {
+				sb.WriteString(resetStr)
+				currentStyle = nil
+			}
+			if currentHyperlink != "" {
+				sb.WriteString(hyperlinkEnd)
+				currentHyperlink = ""
+			}
+			sb.WriteByte('\n')
+		}
+
+		for x := 0; x < buf.Width(); x++ {
+			c := buf.Get(x, y)
+
+			styleChanged := currentStyle == nil || !currentStyle.Equal(c.Style)
+			hyperlinkChanged := c.Style.HyperlinkURL != currentHyperlink
+
+			if styleChanged {
+				if currentHyperlink != "" {
+					sb.WriteString(hyperlinkEnd)
+				}
+				sb.WriteString(resetStr)
+				StyleToAnsi(c.Style, &sb)
+				if c.Style.HyperlinkURL != "" {
+					sb.WriteString(HyperlinkStart(c.Style.HyperlinkURL))
+				}
+				currentHyperlink = c.Style.HyperlinkURL
+				styleCopy := c.Style
+				currentStyle = &styleCopy
+			} else if hyperlinkChanged {
+				if currentHyperlink != "" {
+					sb.WriteString(hyperlinkEnd)
+				}
+				if c.Style.HyperlinkURL != "" {
+					sb.WriteString(HyperlinkStart(c.Style.HyperlinkURL))
+				}
+				currentHyperlink = c.Style.HyperlinkURL
+			}
+
+			sb.WriteRune(c.Char)
+		}
+	}
+
+	if currentHyperlink != "" {
+		sb.WriteString(hyperlinkEnd)
+	}
+	sb.WriteString(resetStr)
+
+	return sb.String()
+}
+
 // BufferToSequentialAnsi renders a CellBuffer line-by-line with newlines.
 // This is used for overflow content where ANSI cursor positioning doesn't work.
 // Outputs from cursor position (0,0) downward, using newlines to advance rows.
