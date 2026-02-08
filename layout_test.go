@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/germtb/gox"
 )
 
 func TestWrapText(t *testing.T) {
@@ -246,5 +248,57 @@ func TestRuneWidth(t *testing.T) {
 				t.Errorf("RuneWidth(%q) = %d, want %d", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestMeasureNode_Fragment(t *testing.T) {
+	// gox.Map() returns __fragment__ nodes; measureNode must handle them
+	fragment := gox.VNode{
+		Type: gox.FragmentNodeType,
+		Children: []gox.VNode{
+			CreateTextNode("Hello"),
+			CreateTextNode("World!"),
+		},
+	}
+
+	w, h := measureNode(fragment)
+	if w != 6 {
+		t.Errorf("fragment width = %d, want 6 (max child width)", w)
+	}
+	if h != 2 {
+		t.Errorf("fragment height = %d, want 2 (sum of children)", h)
+	}
+}
+
+func TestComputeLayout_Fragment(t *testing.T) {
+	// Fragment children should be laid out inline within a parent box
+	node := gox.VNode{
+		Type:  "box",
+		Props: gox.Props{"width": 20, "height": 5, "direction": "column"},
+		Children: []gox.VNode{
+			{
+				Type: gox.FragmentNodeType,
+				Children: []gox.VNode{
+					CreateTextNode("AAA"),
+					CreateTextNode("BBB"),
+				},
+			},
+			CreateTextNode("CCC"),
+		},
+	}
+
+	box := ComputeLayout(node, LayoutContext{X: 0, Y: 0, Width: 20, Height: 5})
+	buf := NewCellBuffer(20, 5)
+	RenderToBuffer(box, buf, nil)
+	output := buf.ToDebugString()
+
+	if !strings.Contains(output, "AAA") {
+		t.Errorf("should contain AAA from fragment child, got:\n%s", output)
+	}
+	if !strings.Contains(output, "BBB") {
+		t.Errorf("should contain BBB from fragment child, got:\n%s", output)
+	}
+	if !strings.Contains(output, "CCC") {
+		t.Errorf("should contain CCC after fragment, got:\n%s", output)
 	}
 }

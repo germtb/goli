@@ -437,6 +437,19 @@ func measureNode(node gox.VNode) (width, height int) {
 		return 0, 0
 	}
 
+	// Handle fragments - measure children as a column
+	if typeStr == "fragment" || typeStr == gox.FragmentNodeType {
+		w, h := 0, 0
+		for _, child := range node.Children {
+			cw, ch := measureNode(child)
+			if cw > w {
+				w = cw
+			}
+			h += ch
+		}
+		return w, h
+	}
+
 	// Check for registered intrinsic element
 	handler := GetIntrinsicHandler(typeStr)
 	if handler == nil {
