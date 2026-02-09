@@ -53,16 +53,16 @@ func Fprint(w io.Writer, node gox.VNode, opts PrintOptions) {
 	// Expand functional components
 	expanded := Expand(node)
 
-	// Compute layout
+	// Compute layout with a large height so content isn't vertically constrained.
+	// Print is non-interactive, so we want all content to render.
 	layoutBox := ComputeLayout(expanded, LayoutContext{
 		X:      0,
 		Y:      0,
 		Width:  width,
-		Height: height,
+		Height: 100_000,
 	})
 
-	// Use content height from layout, capped to available height
-	contentHeight := min(layoutBox.Height, height)
+	contentHeight := layoutBox.Height
 	if contentHeight <= 0 {
 		return
 	}

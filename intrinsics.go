@@ -386,16 +386,24 @@ func measureText(node gox.VNode, ctx *LayoutContext) (int, int) {
 			maxWidth = RuneWidth(line)
 		}
 	}
-	return maxWidth, len(lines)
+	margin := GetSpacing(node.Props, "margin")
+	return maxWidth + margin.Left + margin.Right, len(lines) + margin.Top + margin.Bottom
 }
 
 func layoutText(node gox.VNode, availWidth, availHeight int, ctx *LayoutContext) *LayoutBox {
 	text := CollectTextContent(node)
 	shouldWrap := GetBoolProp(node.Props, "wrap", false)
+	margin := GetSpacing(node.Props, "margin")
+
+	// Shrink available width by margins before wrapping
+	contentWidth := availWidth - margin.Left - margin.Right
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
 
 	var lines []string
 	if shouldWrap {
-		lines = WrapText(text, availWidth)
+		lines = WrapText(text, contentWidth)
 	} else {
 		lines = strings.Split(text, "\n")
 	}
@@ -407,20 +415,32 @@ func layoutText(node gox.VNode, availWidth, availHeight int, ctx *LayoutContext)
 		}
 	}
 
-	w := min(maxWidth, availWidth)
+	w := min(maxWidth, contentWidth)
 	h := len(lines)
 
 	// Create synthetic text node with wrapped content
 	syntheticNode := CreateTextNode(strings.Join(lines, "\n"))
-	syntheticNode.Props["style"] = node.Props["style"]
+	// Copy style prop and direct style attribute props
+	if v, ok := node.Props["style"]; ok {
+		syntheticNode.Props["style"] = v
+	}
+	for _, key := range styleAttributeKeys {
+		if v, ok := node.Props[key]; ok {
+			syntheticNode.Props[key] = v
+		}
+	}
+
+	// Offset position by margins
+	boxX := ctx.X + margin.Left
+	boxY := ctx.Y + margin.Top
 
 	return &LayoutBox{
-		X:           ctx.X,
-		Y:           ctx.Y,
+		X:           boxX,
+		Y:           boxY,
 		Width:       w,
 		Height:      h,
-		InnerX:      ctx.X,
-		InnerY:      ctx.Y,
+		InnerX:      boxX,
+		InnerY:      boxY,
 		InnerWidth:  w,
 		InnerHeight: h,
 		Node:        syntheticNode,

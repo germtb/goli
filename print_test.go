@@ -150,6 +150,30 @@ func TestFprint_CustomDimensions(t *testing.T) {
 	}
 }
 
+func TestSprint_TallContent_NotTruncated(t *testing.T) {
+	// Create 50 lines of content — should all render even if terminal height is small
+	children := make([]gox.VNode, 50)
+	for i := range children {
+		children[i] = textNode("Line")
+	}
+
+	node := boxNode(
+		gox.Props{"width": 10, "direction": "column"},
+		children...,
+	)
+
+	// Use a small terminal height to simulate the old truncation issue
+	result := sprintWith(node, PrintOptions{Width: 10, Height: 10})
+
+	trimmed := strings.TrimSuffix(result, "\n")
+	lines := strings.Split(trimmed, "\n")
+
+	// All 50 lines should be present
+	if len(lines) < 50 {
+		t.Errorf("expected at least 50 lines in output, got %d", len(lines))
+	}
+}
+
 // sprintWith is a test helper that renders with explicit options.
 func sprintWith(node gox.VNode, opts PrintOptions) string {
 	var sb strings.Builder

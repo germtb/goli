@@ -18,19 +18,38 @@ const (
 	ColorMagenta
 	ColorCyan
 	ColorWhite
+	// Bright variants (ANSI 90-97)
+	ColorBrightBlack // aka grey/gray
+	ColorBrightRed
+	ColorBrightGreen
+	ColorBrightYellow
+	ColorBrightBlue
+	ColorBrightMagenta
+	ColorBrightCyan
+	ColorBrightWhite
 )
 
 // NameToColor converts a string color name to Color
 var NameToColor = map[string]Color{
-	"default": ColorDefault,
-	"black":   ColorBlack,
-	"red":     ColorRed,
-	"green":   ColorGreen,
-	"yellow":  ColorYellow,
-	"blue":    ColorBlue,
-	"magenta": ColorMagenta,
-	"cyan":    ColorCyan,
-	"white":   ColorWhite,
+	"default":       ColorDefault,
+	"black":         ColorBlack,
+	"red":           ColorRed,
+	"green":         ColorGreen,
+	"yellow":        ColorYellow,
+	"blue":          ColorBlue,
+	"magenta":       ColorMagenta,
+	"cyan":          ColorCyan,
+	"white":         ColorWhite,
+	"grey":          ColorBrightBlack,
+	"gray":          ColorBrightBlack,
+	"brightBlack":   ColorBrightBlack,
+	"brightRed":     ColorBrightRed,
+	"brightGreen":   ColorBrightGreen,
+	"brightYellow":  ColorBrightYellow,
+	"brightBlue":    ColorBrightBlue,
+	"brightMagenta": ColorBrightMagenta,
+	"brightCyan":    ColorBrightCyan,
+	"brightWhite":   ColorBrightWhite,
 }
 
 // RGB represents a 24-bit true color.

@@ -1,0 +1,208 @@
+package main
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/germtb/goli"
+	"github.com/germtb/gox"
+)
+
+func render(node gox.VNode, w, h int) *goli.CellBuffer {
+	box := goli.ComputeLayout(node, goli.LayoutContext{X: 0, Y: 0, Width: w, Height: h})
+	buf := goli.NewCellBuffer(w, h)
+	goli.RenderToBuffer(box, buf, nil)
+	return buf
+}
+
+func sprint(node gox.VNode, w, h int) string {
+	var sb strings.Builder
+	goli.Fprint(&sb, node, goli.PrintOptions{Width: w, Height: h})
+	return sb.String()
+}
+
+// --- Attribute-based styling ---
+
+func TestDirectStyleAttributes(t *testing.T) {
+	buf := render(<box width={20} height={1}>
+		<text color="green" bold>Hello</text>
+	</box>, 20, 1)
+
+	c := buf.Get(0, 0)
+	if c.Char != 'H' || c.Style.Color != goli.ColorGreen || !c.Style.Bold {
+		t.Errorf("expected green bold 'H', got char=%c color=%v bold=%v", c.Char, c.Style.Color, c.Style.Bold)
+	}
+}
+
+func TestStyleOverridesMap(t *testing.T) {
+	buf := render(<box width={20} height={1}>
+		<text style={{ "color": "red" }} color="blue">X</text>
+	</box>, 20, 1)
+
+	if c := buf.Get(0, 0); c.Style.Color != goli.ColorBlue {
+		t.Errorf("direct color should override style map, got %v", c.Style.Color)
+	}
+}
+
+func TestBgShorthand(t *testing.T) {
+	buf := render(<box width={5} height={1} bg="yellow" />, 5, 1)
+
+	if c := buf.Get(0, 0); c.Style.Background != goli.ColorYellow {
+		t.Errorf("expected yellow bg, got %v", c.Style.Background)
+	}
+}
+
+func TestStyleSurvivesWrap(t *testing.T) {
+	buf := render(<text color="red" bold wrap={true}>Hello World Wrap</text>, 6, 10)
+
+	for _, y := range []int{0, 1} {
+		c := buf.Get(0, y)
+		if c.Char == ' ' {
+			continue
+		}
+		if c.Style.Color != goli.ColorRed || !c.Style.Bold {
+			t.Errorf("line %d lost style: color=%v bold=%v", y, c.Style.Color, c.Style.Bold)
+		}
+	}
+}
+
+// --- Text margins ---
+
+func TestTextMarginLeft(t *testing.T) {
+	buf := render(<box width={20} height={3} direction="column">
+		<text marginLeft={4}>Hi</text>
+	</box>, 20, 3)
+
+	if c := buf.Get(4, 0); c.Char != 'H' {
+		t.Errorf("expected 'H' at x=4 after marginLeft=4, got %c", c.Char)
+	}
+}
+
+func TestTextMarginTop(t *testing.T) {
+	buf := render(<box width={20} height={5} direction="column">
+		<text marginTop={2}>Hi</text>
+	</box>, 20, 5)
+
+	if c := buf.Get(0, 2); c.Char != 'H' {
+		t.Errorf("expected 'H' at y=2 after marginTop=2, got %c", c.Char)
+	}
+}
+
+func TestTextMarginWithStyle(t *testing.T) {
+	buf := render(<box width={20} height={3} direction="column">
+		<text marginLeft={2} color="cyan" bold>Styled</text>
+	</box>, 20, 3)
+
+	c := buf.Get(2, 0)
+	if c.Char != 'S' || c.Style.Color != goli.ColorCyan || !c.Style.Bold {
+		t.Errorf("got char=%c color=%v bold=%v, want S/cyan/bold", c.Char, c.Style.Color, c.Style.Bold)
+	}
+}
+
+// --- Print uncapping ---
+
+func TestPrintNotCappedByTerminalHeight(t *testing.T) {
+	children := make([]gox.VNode, 50)
+	for i := range children {
+		children[i] = <text>Line</text>
+	}
+
+	node := gox.VNode{
+		Type:     "box",
+		Props:    gox.Props{"width": 10, "direction": "column"},
+		Children: children,
+	}
+
+	result := sprint(node, 10, 10)
+	lines := strings.Split(strings.TrimSuffix(result, "\n"), "\n")
+	if len(lines) < 50 {
+		t.Errorf("expected 50+ lines (not capped by height=10), got %d", len(lines))
+	}
+}
+
+// --- Debug layout ---
+
+func TestDebugLayout(t *testing.T) {
+	box := goli.ComputeLayout(
+		<box width={20} height={10} padding={1}>
+			<text>Hello</text>
+		</box>,
+		goli.LayoutContext{X: 0, Y: 0, Width: 20, Height: 10},
+	)
+
+	output := goli.SprintLayout(box)
+
+	if !strings.Contains(output, "box") || !strings.Contains(output, "w=20") {
+		t.Errorf("missing basic info:\n%s", output)
+	}
+	if !strings.Contains(output, "inner(") {
+		t.Errorf("padding=1 should produce inner dims:\n%s", output)
+	}
+}
+
+// --- Spacer ---
+
+func TestSpacerFixedHeight(t *testing.T) {
+	buf := render(<box width={10} height={3} direction="column">
+		<text>A</text>
+		<spacer height={1} />
+		<text>B</text>
+	</box>, 10, 3)
+
+	if buf.Get(0, 0).Char != 'A' || buf.Get(0, 1).Char != ' ' || buf.Get(0, 2).Char != 'B' {
+		t.Errorf("expected A/space/B, got %c/%c/%c", buf.Get(0, 0).Char, buf.Get(0, 1).Char, buf.Get(0, 2).Char)
+	}
+}
+
+func TestSpacerGrowPushesBottom(t *testing.T) {
+	buf := render(<box width={10} height={5} direction="column">
+		<text>Top</text>
+		<spacer grow={1} />
+		<text>Bot</text>
+	</box>, 10, 5)
+
+	if buf.Get(0, 0).Char != 'T' {
+		t.Errorf("Top at y=0: got %c", buf.Get(0, 0).Char)
+	}
+	if buf.Get(0, 4).Char != 'B' {
+		t.Errorf("Bot should be at y=4, got %c", buf.Get(0, 4).Char)
+	}
+}
+
+func TestSpacerGrowRow(t *testing.T) {
+	buf := render(<box width={10} height={1} direction="row">
+		<text>L</text>
+		<spacer grow={1} />
+		<text>R</text>
+	</box>, 10, 1)
+
+	if buf.Get(0, 0).Char != 'L' || buf.Get(9, 0).Char != 'R' {
+		t.Errorf("expected L at x=0, R at x=9, got %c and %c", buf.Get(0, 0).Char, buf.Get(9, 0).Char)
+	}
+}
+
+// --- Integration: dashboard with new features ---
+
+func TestDashboardWithDirectStyles(t *testing.T) {
+	buf := render(<box width={40} height={10} direction="column">
+		<box height={2} background="blue">
+			<text color="white" bold>Header</text>
+		</box>
+		<spacer grow={1} />
+		<box height={2} background="red">
+			<text color="white">Footer</text>
+		</box>
+	</box>, 40, 10)
+
+	// Header: blue bg, white bold text
+	if c := buf.Get(20, 0); c.Style.Background != goli.ColorBlue {
+		t.Errorf("header bg: got %v, want blue", c.Style.Background)
+	}
+	if c := buf.Get(0, 0); c.Style.Color != goli.ColorWhite || !c.Style.Bold {
+		t.Errorf("header text: color=%v bold=%v, want white+bold", c.Style.Color, c.Style.Bold)
+	}
+	// Footer: red bg at bottom
+	if c := buf.Get(20, 8); c.Style.Background != goli.ColorRed {
+		t.Errorf("footer bg: got %v, want red", c.Style.Background)
+	}
+}

@@ -1,6 +1,8 @@
 # Generated gox files (gox uses overlay, no need to commit)
 *_gox.go
+*_gox_test.go
 *_gox.go.map
+*_gox_test.go.map
 
 # Binaries (examples built at root level only)
 /console

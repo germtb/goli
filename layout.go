@@ -215,21 +215,70 @@ func GetBorderStyle(border any) BorderStyle {
 	}
 }
 
+// styleAttributeKeys lists the prop keys that can set style directly on elements.
+// Used by GetStyle to read direct props and by layoutText to copy them to synthetic nodes.
+var styleAttributeKeys = []string{
+	"color", "bg", "background", "bold", "dim", "italic",
+	"underline", "inverse", "strikethrough",
+}
+
 // GetStyle extracts a Style from props.
+// Supports both style map (`style={...}`) and direct attribute props
+// (`color="green"`, `bold`, etc.). Direct props override style map values.
 func GetStyle(props map[string]any) Style {
-	styleVal, ok := props["style"]
-	if !ok || styleVal == nil {
-		return EmptyStyle
+	var style Style
+
+	// Start with style map if present
+	if styleVal, ok := props["style"]; ok && styleVal != nil {
+		switch s := styleVal.(type) {
+		case Style:
+			style = s
+		case map[string]any:
+			style = mapToStyle(s)
+		}
 	}
 
-	switch s := styleVal.(type) {
-	case Style:
-		return s
-	case map[string]any:
-		return mapToStyle(s)
-	default:
-		return EmptyStyle
+	// Override with direct attribute props
+	if v, ok := props["color"]; ok {
+		style.Color, style.ColorRGB = toColor(v)
 	}
+	if v, ok := props["bg"]; ok {
+		style.Background, style.BackgroundRGB = toColor(v)
+	}
+	if v, ok := props["background"]; ok {
+		style.Background, style.BackgroundRGB = toColor(v)
+	}
+	if v, ok := props["bold"]; ok {
+		style.Bold = toBool(v)
+	}
+	if v, ok := props["dim"]; ok {
+		style.Dim = toBool(v)
+	}
+	if v, ok := props["italic"]; ok {
+		style.Italic = toBool(v)
+	}
+	if v, ok := props["underline"]; ok {
+		style.Underline = toBool(v)
+	}
+	if v, ok := props["inverse"]; ok {
+		style.Inverse = toBool(v)
+	}
+	if v, ok := props["strikethrough"]; ok {
+		style.Strikethrough = toBool(v)
+	}
+
+	return style
+}
+
+// toBool converts a prop value to bool.
+// Handles bool values and treats any non-nil, non-false value as true
+// (for bare attributes like `bold` which JSX passes as true).
+func toBool(v any) bool {
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	// Bare attribute (non-nil, non-bool) is truthy
+	return v != nil
 }
 
 func mapToStyle(m map[string]any) Style {
@@ -704,15 +753,19 @@ func layoutFragment(node gox.VNode, ctx LayoutContext) LayoutResult {
 			absoluteBoxes = append(absoluteBoxes, result.Box)
 			absoluteBoxes = append(absoluteBoxes, result.AbsoluteBoxes...)
 		} else {
+			// Measure the child to get its natural height so boxes don't
+			// greedily fill all remaining space in the fragment.
+			_, measuredH := measureNode(child)
+			margin := GetSpacing(child.Props, "margin")
+			childHeight := measuredH + margin.Top + margin.Bottom
 			result := layoutNode(child, LayoutContext{
 				X:      ctx.X,
 				Y:      ctx.Y + offsetY,
 				Width:  ctx.Width,
-				Height: ctx.Height - offsetY,
+				Height: childHeight,
 			})
 			children = append(children, result.Box)
 			absoluteBoxes = append(absoluteBoxes, result.AbsoluteBoxes...)
-			margin := GetSpacing(child.Props, "margin")
 			offsetY += result.Box.Height + margin.Bottom
 		}
 	}
