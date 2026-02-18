@@ -401,8 +401,9 @@ func IntersectClip(a, b *ClipRegion) *ClipRegion {
 }
 
 // RuneWidth returns the display width of a string, accounting for wide characters like emojis.
+// ANSI escape sequences are stripped before measuring.
 func RuneWidth(s string) int {
-	return runewidth.StringWidth(s)
+	return runewidth.StringWidth(StripAnsi(s))
 }
 
 // ComputeLayout computes layout for a VNode tree.
@@ -1034,6 +1035,8 @@ func CollectTextContent(node gox.VNode) string {
 }
 
 // WrapText wraps text to fit within a given width.
+// Handles ANSI escape sequences correctly: they don't count toward width
+// and are preserved across wrapped lines.
 func WrapText(text string, maxWidth int) []string {
 	if maxWidth <= 0 {
 		return []string{text}
@@ -1048,40 +1051,103 @@ func WrapText(text string, maxWidth int) []string {
 			continue
 		}
 
-		// Need to wrap this line
-		remaining := line
-		for RuneWidth(remaining) > maxWidth {
-			// Walk runes to find the byte offset where display width exceeds maxWidth
-			byteLimit := 0
-			displayWidth := 0
-			lastSpace := -1
-			lastSpaceDisplay := 0
-			for i, r := range remaining {
-				rw := runewidth.RuneWidth(r)
-				if displayWidth+rw > maxWidth {
-					byteLimit = i
-					break
+		// Strip ANSI for wrapping calculations, but preserve in output
+		stripped := StripAnsi(line)
+
+		if !ContainsAnsi(line) {
+			// No ANSI: use the original fast path
+			remaining := line
+			for RuneWidth(remaining) > maxWidth {
+				byteLimit := 0
+				displayWidth := 0
+				lastSpace := -1
+				lastSpaceDisplay := 0
+				for i, r := range remaining {
+					rw := runewidth.RuneWidth(r)
+					if displayWidth+rw > maxWidth {
+						byteLimit = i
+						break
+					}
+					displayWidth += rw
+					if r == ' ' {
+						lastSpace = i
+						lastSpaceDisplay = displayWidth
+					}
+					byteLimit = i + utf8.RuneLen(r)
 				}
-				displayWidth += rw
-				if r == ' ' {
-					lastSpace = i
-					lastSpaceDisplay = displayWidth
+
+				if lastSpace > 0 && lastSpaceDisplay >= maxWidth/2 {
+					outputLines = append(outputLines, remaining[:lastSpace])
+					remaining = strings.TrimLeft(remaining[lastSpace:], " ")
+				} else {
+					outputLines = append(outputLines, remaining[:byteLimit])
+					remaining = remaining[byteLimit:]
 				}
-				byteLimit = i + utf8.RuneLen(r)
 			}
 
-			// Try to break at a word boundary
-			if lastSpace > 0 && lastSpaceDisplay >= maxWidth/2 {
-				outputLines = append(outputLines, remaining[:lastSpace])
-				remaining = strings.TrimLeft(remaining[lastSpace:], " ")
-			} else {
-				outputLines = append(outputLines, remaining[:byteLimit])
-				remaining = remaining[byteLimit:]
+			if len(remaining) > 0 {
+				outputLines = append(outputLines, remaining)
 			}
-		}
+		} else {
+			// ANSI present: wrap based on visible width, include escape codes in output.
+			// Simple approach: split stripped text, then reconstruct with ANSI.
+			// For correctness with word-wrap, just hard-wrap at maxWidth on visible chars.
+			_ = stripped
+			remaining := line
+			for RuneWidth(remaining) > maxWidth {
+				// Walk the raw string, tracking visible width
+				displayWidth := 0
+				byteLimit := 0
+				lastSpace := -1
+				lastSpaceDisplay := 0
+				i := 0
+				for i < len(remaining) {
+					if remaining[i] == '\x1b' && i+1 < len(remaining) && remaining[i+1] == '[' {
+						// Skip CSI sequence (zero width)
+						i += 2
+						for i < len(remaining) && !(remaining[i] >= 0x40 && remaining[i] <= 0x7E) {
+							i++
+						}
+						if i < len(remaining) {
+							i++
+						}
+						continue
+					}
+					if remaining[i] == '\x1b' {
+						i += 2
+						continue
+					}
 
-		if len(remaining) > 0 {
-			outputLines = append(outputLines, remaining)
+					r, size := utf8.DecodeRuneInString(remaining[i:])
+					rw := runewidth.RuneWidth(r)
+					if displayWidth+rw > maxWidth {
+						byteLimit = i
+						break
+					}
+					displayWidth += rw
+					if r == ' ' {
+						lastSpace = i
+						lastSpaceDisplay = displayWidth
+					}
+					byteLimit = i + size
+					i += size
+				}
+				if byteLimit == 0 {
+					byteLimit = len(remaining)
+				}
+
+				if lastSpace > 0 && lastSpaceDisplay >= maxWidth/2 {
+					outputLines = append(outputLines, remaining[:lastSpace])
+					remaining = strings.TrimLeft(remaining[lastSpace:], " ")
+				} else {
+					outputLines = append(outputLines, remaining[:byteLimit])
+					remaining = remaining[byteLimit:]
+				}
+			}
+
+			if len(remaining) > 0 {
+				outputLines = append(outputLines, remaining)
+			}
 		}
 	}
 
