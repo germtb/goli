@@ -517,37 +517,46 @@ func measureNode(node gox.VNode) (width, height int) {
 		borderSize = 1
 	}
 
+	overflow := GetOverflow(node.Props)
+
 	direction := getDirection(node.Props)
 	gap := GetIntProp(node.Props, "gap", 0)
 
 	contentWidth := 0
 	contentHeight := 0
 
-	relativeChildren := filterRelativeChildren(node)
-	childSizes := make([]struct{ w, h int }, len(relativeChildren))
-	for i, c := range relativeChildren {
-		w, h := measureNode(c)
-		childSizes[i] = struct{ w, h int }{w, h}
-	}
+	// When overflow is hidden or scroll, content should not contribute to the
+	// measured size along the overflow axis. This allows flex grow to distribute
+	// available space evenly instead of content dictating the size.
+	skipContentSize := overflow == OverflowHidden || overflow == OverflowScroll
 
-	if direction == Row {
-		for i, size := range childSizes {
-			contentWidth += size.w
-			if i > 0 {
-				contentWidth += gap
-			}
-			if size.h > contentHeight {
-				contentHeight = size.h
-			}
+	if !skipContentSize {
+		relativeChildren := filterRelativeChildren(node)
+		childSizes := make([]struct{ w, h int }, len(relativeChildren))
+		for i, c := range relativeChildren {
+			w, h := measureNode(c)
+			childSizes[i] = struct{ w, h int }{w, h}
 		}
-	} else {
-		for i, size := range childSizes {
-			contentHeight += size.h
-			if i > 0 {
-				contentHeight += gap
+
+		if direction == Row {
+			for i, size := range childSizes {
+				contentWidth += size.w
+				if i > 0 {
+					contentWidth += gap
+				}
+				if size.h > contentHeight {
+					contentHeight = size.h
+				}
 			}
-			if size.w > contentWidth {
-				contentWidth = size.w
+		} else {
+			for i, size := range childSizes {
+				contentHeight += size.h
+				if i > 0 {
+					contentHeight += gap
+				}
+				if size.w > contentWidth {
+					contentWidth = size.w
+				}
 			}
 		}
 	}
